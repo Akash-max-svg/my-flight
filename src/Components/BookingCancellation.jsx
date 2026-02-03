@@ -334,7 +334,13 @@ const BookingCancellation = () => {
                 </div>
                 <button 
                   className="btn btn-outline-secondary"
-                  onClick={() => navigate("/my-bookings")}
+                  onClick={() => {
+                    // Dispatch event to refresh bookings when going back
+                    window.dispatchEvent(new CustomEvent('bookingUpdated', {
+                      detail: { action: 'refresh' }
+                    }));
+                    navigate("/my-bookings");
+                  }}
                 >
                   ← Back to Bookings
                 </button>
@@ -837,7 +843,13 @@ const BookingCancellation = () => {
                     </button>
                     <button 
                       className="btn btn-primary"
-                      onClick={() => navigate("/my-bookings")}
+                      onClick={() => {
+                        // Dispatch event to refresh bookings
+                        window.dispatchEvent(new CustomEvent('bookingUpdated', {
+                          detail: { action: 'refresh' }
+                        }));
+                        navigate("/my-bookings");
+                      }}
                     >
                       View My Bookings
                     </button>
@@ -890,9 +902,9 @@ const BookingCancellation = () => {
                   <div className="bg-light rounded-3 p-3">
                     <h6 className="fw-bold mb-2">Need Help?</h6>
                     <div className="small">
-                      <div>📞 Customer Support: 1800-123-4567</div>
-                      <div>📧 Email: support@businessflight.com</div>
-                      <div>💬 Live Chat: Available 24/7</div>
+                      <div>📞 Customer Support: +91-6301616095</div>
+                      <div>📧 Email: support@akgroup.com</div>
+                      <div>🕒 Available: 24/7</div>
                     </div>
                   </div>
                 </>

@@ -268,6 +268,13 @@ class CancellationService {
       const refundRecord = this.createRefundRecord(cancellationRecord);
       console.log('💳 Created refund record:', refundRecord);
 
+      // Dispatch custom event to notify components about booking update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('bookingUpdated', {
+          detail: { bookingId, action: 'cancelled' }
+        }));
+      }
+
       return {
         success: true,
         cancellation: cancellationRecord,

@@ -299,12 +299,12 @@ const BookingSelector = () => {
                               📞 Call Support
                             </button>
                             <button 
-                              className="btn btn-outline-success btn-sm"
+                              className="btn btn-outline-primary btn-sm"
                               onClick={() => {
-                                toast.info("💬 Live chat opened in new window");
+                                toast.info("📞 Contact support: +91-6301616095");
                               }}
                             >
-                              💬 Live Chat
+                              📞 Contact Support
                             </button>
                           </div>
                         </div>

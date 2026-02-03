@@ -121,7 +121,7 @@ function Login() {
           display: flex;
           justify-content: center;
           align-items: center;
-          background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=1920&h=1080&fit=crop&q=80');
+          background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1540962351504-03099e0a754b?w=1920&h=1080&fit=crop&q=80');
           background-size: cover;
           background-position: center;
           background-attachment: fixed;

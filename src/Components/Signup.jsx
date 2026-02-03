@@ -10,8 +10,10 @@ function Signup() {
     email: "",
     password: "",
     confirmPassword: "",
+    gender: "",
     mobile: "",
     age: "",
+    country: "",
     dob: "",
   });
 
@@ -47,8 +49,15 @@ function Signup() {
       err.confirmPassword = "Passwords do not match";
 
     if (!user.mobile) err.mobile = "Mobile number required";
+    else if (!/^[0-9]{10}$/.test(user.mobile.replace(/\D/g, '')))
+      err.mobile = "Please enter a valid 10-digit mobile number";
+    
     if (!user.age) err.age = "Age required";
+    else if (user.age < 1 || user.age > 120) err.age = "Please enter a valid age";
+    
+    if (!user.country) err.country = "Country required";
     if (!user.dob) err.dob = "DOB required";
+    if (!user.gender) err.gender = "Gender required";
 
     setErrors(err);
     return Object.keys(err).length === 0;
@@ -71,6 +80,9 @@ function Signup() {
       email: user.email,
       age: user.age,
       mobile: user.mobile,
+      gender: user.gender,
+      country: user.country,
+      dob: user.dob,
       role: "Customer",
       signupTime: new Date().toLocaleString(),
     };
@@ -95,7 +107,7 @@ function Signup() {
       <style>{`
         .signup-bg {
           min-height: 100vh;
-          background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1920&h=1080&fit=crop&q=80');
+          background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=1920&h=1080&fit=crop&q=80');
           background-size: cover;
           background-position: center;
           background-attachment: fixed;
@@ -198,13 +210,34 @@ function Signup() {
             />
             <small>{errors.confirmPassword}</small>
 
+            <select 
+              name="gender" 
+              className="form-control" 
+              onChange={handleChange} 
+              value={user.gender}
+              style={{ textAlign: "left" }}
+            >
+              <option value="">Select Gender</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+              <option value="prefer-not-to-say">Prefer not to say</option>
+            </select>
+            <small>{errors.gender}</small>
+
             <input 
               type="text" 
               name="mobile" 
               className="form-control" 
-              placeholder="Mobile Number" 
-              onChange={handleChange} 
+              placeholder="Mobile Number (10 digits)" 
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '');
+                if (value.length <= 10) {
+                  setUser({ ...user, mobile: value });
+                }
+              }}
               value={user.mobile}
+              maxLength="10"
             />
             <small>{errors.mobile}</small>
 
@@ -215,8 +248,20 @@ function Signup() {
               placeholder="Age" 
               onChange={handleChange} 
               value={user.age}
+              min="1"
+              max="120"
             />
             <small>{errors.age}</small>
+
+            <input 
+              type="text" 
+              name="country" 
+              className="form-control" 
+              placeholder="Country (e.g., India, USA, UK)" 
+              onChange={handleChange} 
+              value={user.country}
+            />
+            <small>{errors.country}</small>
 
             <input 
               type="date" 

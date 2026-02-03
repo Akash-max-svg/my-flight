@@ -402,9 +402,9 @@ const BookingConfirmation = () => {
               <div className="bg-light rounded-3 p-3">
                 <h6 className="fw-bold mb-2">Need Help?</h6>
                 <div className="small">
-                  <div>📞 Customer Support: 1800-123-4567</div>
-                  <div>📧 Email: support@businessflight.com</div>
-                  <div>💬 Live Chat: Available 24/7</div>
+                  <div>📞 Customer Support: +91-6301616095</div>
+                  <div>📧 Email: support@akgroup.com</div>
+                  <div>🕒 Available: 24/7</div>
                 </div>
               </div>
             </div>

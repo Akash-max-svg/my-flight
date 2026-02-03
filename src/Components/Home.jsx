@@ -14,49 +14,80 @@ import { getAirlineImage, getAirlineServiceImage } from "../services/airlineImag
 import flightFilterAPI from "../services/flightFilterAPI";
 import discountService from "../services/discountService";
 
-// Carousel slides data with URL-based images (logo-free)
+// Import local flight image
+import flight3Image from "../assets/flight3.webp";
+
+// Carousel slides data with luxury flight images and beautiful places
 const carouselSlides = [
+  // LOCAL LUXURY FLIGHT IMAGE - START SECTION
   {
-    image: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1200&h=600&fit=crop&q=80",
-    title: "✈️ Luxury Business Class Flights",
-    subtitle: "Experience premium comfort in the sky",
-    description: "Fly in style with our world-class business class service"
+    image: flight3Image,
+    title: "✈️ Premium Flight Experience",
+    subtitle: "Your journey begins with luxury",
+    description: "Experience world-class comfort and service from takeoff to landing"
+  },
+  // LUXURY FLIGHT IMAGES - START SECTION
+  {
+    image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&h=600&fit=crop&q=80&v=1",
+    title: "✈️ Ultra-Luxury Private Suites",
+    subtitle: "Your own private sanctuary in the sky",
+    description: "Experience unparalleled luxury with fully enclosed suites featuring sliding doors"
   },
   {
-    image: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&h=600&fit=crop&q=80",
-    title: "🌍 Global Destinations",
-    subtitle: "Explore 100+ destinations worldwide",
-    description: "From bustling cities to exotic getaways"
+    image: "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=1200&h=600&fit=crop&q=80&v=1",
+    title: "✈️ Luxury First Class Experience",
+    subtitle: "Private suites with lie-flat beds",
+    description: "Experience the ultimate in luxury travel with spacious suites and premium service"
   },
   {
-    image: "https://images.unsplash.com/photo-1540962351504-03099e0a754b?w=1200&h=600&fit=crop&q=80",
-    title: "💰 Best Price Guarantee",
-    subtitle: "Unbeatable prices on premium flights",
-    description: "Save up to 40% on business class bookings"
+    image: "https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=1200&h=600&fit=crop&q=80&v=1",
+    title: "🇬🇧 British Airways Excellence",
+    subtitle: "World-class Club World service",
+    description: "Fly with Britain's flagship carrier and experience award-winning hospitality"
+  },
+  // BEAUTIFUL DESTINATIONS - MIDDLE SECTION
+  {
+    image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&h=600&fit=crop&q=80&v=1",
+    title: "🏝️ Tropical Paradise Destinations",
+    subtitle: "Escape to pristine beaches",
+    description: "Discover crystal-clear waters and white sandy beaches in exotic locations"
   },
   {
-    image: "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?w=1200&h=600&fit=crop&q=80",
-    title: "🎯 AI-Powered Booking",
-    subtitle: "Smart recommendations for optimal travel",
-    description: "Get personalized flight suggestions and price predictions"
+    image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1200&h=600&fit=crop&q=80&v=1",
+    title: "🏔️ Mountain Adventure Getaways",
+    subtitle: "Breathtaking alpine destinations",
+    description: "Explore majestic mountain ranges and pristine wilderness areas"
   },
   {
-    image: "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=1200&h=600&fit=crop&q=80",
-    title: "🏆 Premium Airlines",
-    subtitle: "Partner with top-rated carriers",
-    description: "Quality service from trusted aviation partners"
+    image: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=1200&h=600&fit=crop&q=80&v=1",
+    title: "🌆 Cosmopolitan City Breaks",
+    subtitle: "Urban adventures await",
+    description: "Discover vibrant cities with rich culture, architecture, and nightlife"
+  },
+  // LUXURY FLIGHT SERVICES - END SECTION
+  {
+    image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=1200&h=600&fit=crop&q=80&v=1",
+    title: "🛩️ Premium Business Class Cabin",
+    subtitle: "Sophisticated comfort and elegance",
+    description: "Enjoy spacious seating, premium amenities, and personalized service"
   },
   {
-    image: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=1200&h=600&fit=crop&q=80",
-    title: "🌟 24/7 Premium Support",
-    subtitle: "Round-the-clock assistance",
-    description: "Expert travel consultants available anytime"
+    image: "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1200&h=600&fit=crop&q=80&v=1",
+    title: "🍽️ Gourmet In-Flight Dining",
+    subtitle: "Michelin-starred cuisine at altitude",
+    description: "Savor world-class culinary creations prepared by renowned chefs"
   },
   {
-    image: "https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=1200&h=600&fit=crop&q=80",
-    title: "🚀 Instant Booking",
-    subtitle: "Book flights in seconds",
-    description: "Secure payment and instant confirmation"
+    image: "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?w=1200&h=600&fit=crop&q=80&v=1",
+    title: "🚀 Next-Generation Aircraft",
+    subtitle: "Modern fleet with latest technology",
+    description: "Fly on state-of-the-art aircraft with advanced comfort and entertainment systems"
+  },
+  {
+    image: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=1200&h=600&fit=crop&q=80&v=1",
+    title: "🌟 Exclusive Airport Lounges",
+    subtitle: "Luxury begins before takeoff",
+    description: "Relax in world-class lounges with spa services, fine dining, and premium amenities"
   }
 ];
 
@@ -270,23 +301,37 @@ const generateFlightsWithImages = () => {
     // Fallback: return flights with default image
     return baseFlights.map(flight => ({
       ...flight,
-      image: "https://images.unsplash.com/photo-1556388158-158ea5ccacbd?w=800&h=400&fit=crop&q=80"
+      image: "https://images.pexels.com/photos/358319/pexels-photo-358319.jpeg?auto=compress&cs=tinysrgb&w=800&h=400&fit=crop"
     }));
   }
 };
 
 const flights = flightFilterAPI.flightDatabase;
 
-const Home = () => {
-  const [active, setActive] = useState("HOME");
+const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
+  const [active, setActive] = useState(initialActive);
   const [userData, setUserData] = useState(null);
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [editingProfile, setEditingProfile] = useState({
+    username: "",
+    email: "",
+    age: "",
+    mobile: "",
+    gender: "",
+    country: "",
+    dob: ""
+  });
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
   const [flightData, setFlightData] = useState(flights);
   const [selectedFlight, setSelectedFlight] = useState(null);
   const [showPricePrediction, setShowPricePrediction] = useState(false);
+  
+  // User bookings state
+  const [userBookings, setUserBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
   
   // Carousel state
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -324,13 +369,62 @@ const Home = () => {
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Get user data from localStorage
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user) {
-      setUserData(user);
+  // Load user bookings
+  const loadUserBookings = async () => {
+    if (!isLoggedIn) {
+      setUserBookings([]);
+      return;
     }
-  }, []);
+
+    try {
+      setBookingsLoading(true);
+      const bookings = bookingService.getUserBookings();
+      console.log("Loaded user bookings:", bookings);
+      setUserBookings(bookings);
+    } catch (error) {
+      console.error("Error loading user bookings:", error);
+      setUserBookings([]);
+      toast.error("Failed to load your bookings");
+    } finally {
+      setBookingsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Get user data from localStorage when component mounts or isLoggedIn changes
+    if (isLoggedIn) {
+      try {
+        const user = JSON.parse(localStorage.getItem("user"));
+        console.log("Loading user data:", user);
+        if (user) {
+          setUserData(user);
+        }
+      } catch (error) {
+        console.error("Error loading user data:", error);
+        setUserData(null);
+      }
+      
+      // Load user bookings when logged in
+      loadUserBookings();
+    } else {
+      setUserData(null);
+      setUserBookings([]);
+    }
+  }, [isLoggedIn]); // Add isLoggedIn as dependency
+
+  // Update active state when initialActive prop changes
+  useEffect(() => {
+    if (initialActive && initialActive !== active) {
+      setActive(initialActive);
+    }
+  }, [initialActive]);
+
+  // Refresh bookings when returning to My Tickets section
+  useEffect(() => {
+    if (active === "TICKETS" && isLoggedIn) {
+      loadUserBookings();
+    }
+  }, [active, isLoggedIn]);
 
   // Carousel auto-play effect
   useEffect(() => {
@@ -366,6 +460,132 @@ const Home = () => {
     navigate("/");
   };
 
+  // Handle ticket cancellation navigation
+  const handleCancelTicket = (booking) => {
+    if (window.confirm(`Are you sure you want to cancel this ticket?\n\nFlight: ${booking.flight.from} → ${booking.flight.to}\nBooking ID: ${booking.bookingId}`)) {
+      navigate(`/cancel-booking/${booking.bookingId}`, { 
+        state: { booking } 
+      });
+    }
+  };
+
+  // Listen for storage changes to refresh bookings when cancellation is completed
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'flight_bookings' && isLoggedIn) {
+        console.log("Bookings updated in storage, refreshing...");
+        loadUserBookings();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom events from cancellation process
+    const handleBookingUpdate = () => {
+      if (isLoggedIn) {
+        console.log("Booking update event received, refreshing...");
+        loadUserBookings();
+      }
+    };
+
+    window.addEventListener('bookingUpdated', handleBookingUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('bookingUpdated', handleBookingUpdate);
+    };
+  }, [isLoggedIn]);
+
+  // Profile editing functions
+  const handleEditProfile = () => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      setEditingProfile({
+        username: user.username || "",
+        email: user.email || "",
+        age: user.age || "",
+        mobile: user.mobile || "",
+        gender: user.gender || "",
+        country: user.country || "",
+        dob: user.dob || ""
+      });
+      setShowProfileEdit(true);
+    } catch (error) {
+      console.error("Error loading profile for editing:", error);
+      toast.error("Failed to load profile data");
+    }
+  };
+
+  const handleSaveProfile = () => {
+    try {
+      // Validation
+      if (!editingProfile.username.trim()) {
+        toast.error("Username is required");
+        return;
+      }
+      if (!editingProfile.email.trim() || !/\S+@\S+\.\S+/.test(editingProfile.email)) {
+        toast.error("Valid email is required");
+        return;
+      }
+      if (!editingProfile.age || editingProfile.age < 1 || editingProfile.age > 120) {
+        toast.error("Valid age is required");
+        return;
+      }
+      if (!editingProfile.mobile.trim() || !/^[0-9]{10}$/.test(editingProfile.mobile)) {
+        toast.error("Valid 10-digit mobile number is required");
+        return;
+      }
+      if (!editingProfile.country.trim()) {
+        toast.error("Country is required");
+        return;
+      }
+
+      // Update user data in localStorage
+      const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+      const updatedUser = {
+        ...currentUser,
+        ...editingProfile,
+        updatedAt: new Date().toISOString()
+      };
+
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      
+      // Also update signup user data for login consistency
+      const signupUser = JSON.parse(localStorage.getItem("signupUser") || "{}");
+      const updatedSignupUser = {
+        ...signupUser,
+        ...editingProfile,
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem("signupUser", JSON.stringify(updatedSignupUser));
+
+      // Update local state
+      setUserData(updatedUser);
+      setShowProfileEdit(false);
+      
+      // Trigger auth change event
+      window.dispatchEvent(new Event('authChange'));
+      
+      toast.success("Profile updated successfully!");
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      toast.error("Failed to update profile");
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setShowProfileEdit(false);
+    setEditingProfile({
+      username: "",
+      email: "",
+      age: "",
+      mobile: "",
+      gender: "",
+      country: "",
+      dob: ""
+    });
+  };
+
   // ENHANCED SEARCH FUNCTIONALITY
   const handleSearch = () => {
     if (!search.trim()) {
@@ -373,6 +593,9 @@ const Home = () => {
       setShowResults(false);
       return;
     }
+
+    // Allow basic search for browsing, but require login for booking
+    // This allows users to see available flights before deciding to login
 
     const searchTerm = search.toLowerCase();
     
@@ -424,6 +647,13 @@ const Home = () => {
 
   // ENHANCED ADVANCED SEARCH FUNCTIONALITY WITH RETURN FLIGHTS
   const handleAdvancedSearch = () => {
+    // Check authentication for booking-related searches
+    if (!isLoggedIn) {
+      toast.info("Please login to search and book flights");
+      navigate("/login");
+      return;
+    }
+
     if (!searchForm.from || !searchForm.to) {
       toast.error("Please select both departure and destination cities");
       return;
@@ -515,6 +745,11 @@ const Home = () => {
   };
 
   const handleBookNow = (flight) => {
+    if (!isLoggedIn) {
+      toast.info("Please login to book your ticket");
+      navigate("/login");
+      return;
+    }
     setSelectedFlight(flight);
     navigate("/booking", { state: { flight } });
   };
@@ -541,6 +776,13 @@ const Home = () => {
   };
 
   const applyFilters = () => {
+    // Check authentication for booking-related filtering
+    if (!isLoggedIn) {
+      toast.info("Please login to filter and book flights");
+      navigate("/login");
+      return;
+    }
+
     console.log('🔍 Applying filters:', filters);
     
     try {
@@ -744,17 +986,721 @@ const Home = () => {
           overflowX: "hidden",
         }}
       >
+        {/* ACCOUNT SYMBOL AT TOP RIGHT - Only show when logged in */}
+        {isLoggedIn && (
+          <div 
+            style={{
+              position: "fixed",
+              top: "20px",
+              right: "20px",
+              zIndex: 1000
+            }}
+          >
+            {/* Account Symbol Button */}
+            <button
+              onClick={() => setShowDashboard(!showDashboard)}
+              style={{
+                width: "60px",
+                height: "60px",
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #667eea, #764ba2)",
+                border: "3px solid #ffffff",
+                color: "white",
+                fontSize: "24px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                boxShadow: "0 8px 25px rgba(102,126,234,0.4)",
+                transition: "all 0.3s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backdropFilter: "blur(10px)"
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = "scale(1.1)";
+                e.target.style.boxShadow = "0 12px 35px rgba(102,126,234,0.6)";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = "scale(1)";
+                e.target.style.boxShadow = "0 8px 25px rgba(102,126,234,0.4)";
+              }}
+              title="Account Menu"
+            >
+              {(() => {
+                try {
+                  const user = JSON.parse(localStorage.getItem("user") || "{}");
+                  return (user.username || user.email || "U").charAt(0).toUpperCase();
+                } catch {
+                  return "U";
+                }
+              })()}
+            </button>
+
+            {/* Dropdown Menu */}
+            {showDashboard && (
+              <div 
+                style={{
+                  position: "absolute",
+                  top: "70px",
+                  right: "0",
+                  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                  backdropFilter: "blur(15px)",
+                  borderRadius: "20px",
+                  padding: "25px",
+                  boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+                  border: "2px solid rgba(255,255,255,0.2)",
+                  minWidth: "380px",
+                  maxWidth: "420px",
+                  maxHeight: "80vh",
+                  overflowY: "auto",
+                  color: "white",
+                  zIndex: 1000
+                }}
+                className="account-dashboard-scroll"
+              >
+                <style>{`
+                  .account-dashboard-scroll::-webkit-scrollbar {
+                    width: 8px;
+                  }
+                  .account-dashboard-scroll::-webkit-scrollbar-track {
+                    background: rgba(255,255,255,0.1);
+                    border-radius: 10px;
+                  }
+                  .account-dashboard-scroll::-webkit-scrollbar-thumb {
+                    background: rgba(255,255,255,0.3);
+                    border-radius: 10px;
+                  }
+                  .account-dashboard-scroll::-webkit-scrollbar-thumb:hover {
+                    background: rgba(255,255,255,0.5);
+                  }
+                  
+                  .scroll-indicator {
+                    position: sticky;
+                    top: 0;
+                    background: rgba(255,255,255,0.1);
+                    backdrop-filter: blur(10px);
+                    padding: 8px;
+                    border-radius: 10px;
+                    margin-bottom: 15px;
+                    text-align: center;
+                    font-size: 12px;
+                    color: rgba(255,255,255,0.8);
+                    border: 1px solid rgba(255,255,255,0.2);
+                  }
+                  
+                  .scroll-buttons {
+                    position: sticky;
+                    bottom: 0;
+                    background: rgba(255,255,255,0.1);
+                    backdrop-filter: blur(10px);
+                    padding: 10px;
+                    border-radius: 10px;
+                    margin-top: 15px;
+                    display: flex;
+                    justify-content: space-between;
+                    gap: 10px;
+                  }
+                  
+                  .scroll-btn {
+                    background: rgba(255,255,255,0.2);
+                    border: 1px solid rgba(255,255,255,0.3);
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    transition: all 0.3s ease;
+                    flex: 1;
+                  }
+                  
+                  .scroll-btn:hover {
+                    background: rgba(255,255,255,0.3);
+                    transform: translateY(-2px);
+                  }
+                `}</style>
+                
+                {/* Scroll Indicator */}
+                <div className="scroll-indicator">
+                  📊 Account Dashboard - Scroll to view all details
+                </div>
+
+                {/* User Info Header */}
+                <div className="d-flex align-items-center gap-3 mb-4 pb-3" style={{ borderBottom: "2px solid rgba(255,255,255,0.2)" }}>
+                  <div 
+                    style={{
+                      width: "50px",
+                      height: "50px",
+                      borderRadius: "50%",
+                      background: "rgba(255,255,255,0.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "white",
+                      fontSize: "20px",
+                      fontWeight: "bold",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                      border: "2px solid rgba(255,255,255,0.3)"
+                    }}
+                  >
+                    {(() => {
+                      try {
+                        const user = JSON.parse(localStorage.getItem("user") || "{}");
+                        return (user.username || user.email || "U").charAt(0).toUpperCase();
+                      } catch {
+                        return "U";
+                      }
+                    })()}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: "600", fontSize: "18px", color: "white" }}>
+                      {(() => {
+                        try {
+                          const user = JSON.parse(localStorage.getItem("user") || "{}");
+                          return user.username || "User";
+                        } catch {
+                          return "User";
+                        }
+                      })()}
+                    </div>
+                    <div style={{ fontSize: "14px", color: "rgba(255,255,255,0.8)" }}>
+                      {(() => {
+                        try {
+                          const user = JSON.parse(localStorage.getItem("user") || "{}");
+                          return user.email || "user@example.com";
+                        } catch {
+                          return "user@example.com";
+                        }
+                      })()}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#28a745", marginTop: "2px" }}>
+                      🟢 Online
+                    </div>
+                  </div>
+                </div>
+
+                {/* Complete User Details Section */}
+                <div className="mb-4 p-3 rounded-3" style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)" }}>
+                  <h6 className="fw-bold mb-3" style={{ color: "white", fontSize: "14px" }}>
+                    📋 Complete Profile Details
+                  </h6>
+                  <div 
+                    style={{ 
+                      fontSize: "13px",
+                      maxHeight: "300px",
+                      overflowY: "auto",
+                      paddingRight: "10px"
+                    }}
+                    className="custom-scrollbar-white"
+                  >
+                    <style>{`
+                      .custom-scrollbar-white::-webkit-scrollbar {
+                        width: 6px;
+                      }
+                      .custom-scrollbar-white::-webkit-scrollbar-track {
+                        background: rgba(255,255,255,0.1);
+                        border-radius: 10px;
+                      }
+                      .custom-scrollbar-white::-webkit-scrollbar-thumb {
+                        background: rgba(255,255,255,0.3);
+                        border-radius: 10px;
+                      }
+                      .custom-scrollbar-white::-webkit-scrollbar-thumb:hover {
+                        background: rgba(255,255,255,0.5);
+                      }
+                    `}</style>
+                    {(() => {
+                      try {
+                        const user = JSON.parse(localStorage.getItem("user") || "{}");
+                        return (
+                          <div className="row g-2">
+                            <div className="col-6">
+                              <div className="d-flex flex-column py-2">
+                                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px", fontWeight: "500" }}>USERNAME</span>
+                                <span style={{ color: "white", fontWeight: "600" }}>{user.username || "Not set"}</span>
+                              </div>
+                            </div>
+                            <div className="col-6">
+                              <div className="d-flex flex-column py-2">
+                                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px", fontWeight: "500" }}>EMAIL</span>
+                                <span style={{ color: "white", fontWeight: "600", fontSize: "12px" }}>{user.email || "Not set"}</span>
+                              </div>
+                            </div>
+                            <div className="col-6">
+                              <div className="d-flex flex-column py-2">
+                                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px", fontWeight: "500" }}>AGE</span>
+                                <span style={{ color: "white", fontWeight: "600" }}>{user.age ? `${user.age} years` : "Not set"}</span>
+                              </div>
+                            </div>
+                            <div className="col-6">
+                              <div className="d-flex flex-column py-2">
+                                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px", fontWeight: "500" }}>GENDER</span>
+                                <span style={{ color: "white", fontWeight: "600" }}>
+                                  {user.gender ? user.gender.charAt(0).toUpperCase() + user.gender.slice(1) : "Not set"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="col-6">
+                              <div className="d-flex flex-column py-2">
+                                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px", fontWeight: "500" }}>MOBILE</span>
+                                <span style={{ color: "white", fontWeight: "600" }}>{user.mobile || "Not set"}</span>
+                              </div>
+                            </div>
+                            <div className="col-6">
+                              <div className="d-flex flex-column py-2">
+                                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px", fontWeight: "500" }}>COUNTRY</span>
+                                <span style={{ color: "white", fontWeight: "600" }}>{user.country || "Not set"}</span>
+                              </div>
+                            </div>
+                            <div className="col-6">
+                              <div className="d-flex flex-column py-2">
+                                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px", fontWeight: "500" }}>DATE OF BIRTH</span>
+                                <span style={{ color: "white", fontWeight: "600" }}>
+                                  {user.dob ? new Date(user.dob).toLocaleDateString('en-IN') : "Not set"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="col-6">
+                              <div className="d-flex flex-column py-2">
+                                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px", fontWeight: "500" }}>MEMBER SINCE</span>
+                                <span style={{ color: "white", fontWeight: "600" }}>
+                                  {user.signupTime ? new Date(user.signupTime).toLocaleDateString('en-IN') : "Today"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="col-6">
+                              <div className="d-flex flex-column py-2">
+                                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px", fontWeight: "500" }}>ACCOUNT TYPE</span>
+                                <span style={{ color: "white", fontWeight: "600" }}>{user.role || "Premium Customer"}</span>
+                              </div>
+                            </div>
+                            {user.updatedAt && (
+                              <div className="col-12">
+                                <div className="d-flex flex-column py-2">
+                                  <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px", fontWeight: "500" }}>LAST UPDATED</span>
+                                  <span style={{ color: "white", fontWeight: "600" }}>
+                                    {new Date(user.updatedAt).toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      } catch {
+                        return <div style={{ color: "rgba(255,255,255,0.7)", textAlign: "center", padding: "20px" }}>
+                          <div>❌ Unable to load profile details</div>
+                          <small>Please try refreshing or contact support</small>
+                        </div>;
+                      }
+                    })()}
+                  </div>
+                </div>
+
+                {/* Quick Stats */}
+                <div className="row g-2 mb-4">
+                  <div className="col-6">
+                    <div style={{
+                      background: "rgba(255,255,255,0.15)",
+                      color: "white",
+                      padding: "15px",
+                      borderRadius: "15px",
+                      textAlign: "center",
+                      fontSize: "13px",
+                      border: "1px solid rgba(255,255,255,0.2)"
+                    }}>
+                      <div style={{ fontSize: "20px", fontWeight: "bold" }}>
+                        {(() => {
+                          try {
+                            return userBookings.length;
+                          } catch {
+                            return "0";
+                          }
+                        })()}
+                      </div>
+                      <div>Active Bookings</div>
+                    </div>
+                  </div>
+                  <div className="col-6">
+                    <div style={{
+                      background: "rgba(255,255,255,0.15)",
+                      color: "white",
+                      padding: "15px",
+                      borderRadius: "15px",
+                      textAlign: "center",
+                      fontSize: "13px",
+                      border: "1px solid rgba(255,255,255,0.2)"
+                    }}>
+                      <div style={{ fontSize: "20px", fontWeight: "bold" }}>
+                        {(() => {
+                          try {
+                            const stats = bookingService.getBookingStats();
+                            return `₹${(stats.totalSpent / 1000).toFixed(0)}K`;
+                          } catch {
+                            return "₹0";
+                          }
+                        })()}
+                      </div>
+                      <div>Total Spent</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="d-flex flex-column gap-2">
+                  <button
+                    onClick={handleEditProfile}
+                    style={{
+                      background: "rgba(255,255,255,0.2)",
+                      color: "white",
+                      border: "2px solid rgba(255,255,255,0.3)",
+                      padding: "12px 20px",
+                      borderRadius: "12px",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                      backdropFilter: "blur(10px)"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.transform = "translateY(-2px)";
+                      e.target.style.background = "rgba(255,255,255,0.3)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.transform = "translateY(0)";
+                      e.target.style.background = "rgba(255,255,255,0.2)";
+                    }}
+                  >
+                    ✏️ Edit Profile
+                  </button>
+
+                  <div className="row g-2">
+                    <div className="col-6">
+                      <button
+                        onClick={() => setActive("TICKETS")}
+                        style={{
+                          background: "rgba(255,255,255,0.15)",
+                          color: "white",
+                          border: "1px solid rgba(255,255,255,0.3)",
+                          padding: "10px",
+                          borderRadius: "10px",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          width: "100%",
+                          transition: "all 0.2s ease"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.transform = "translateY(-1px)";
+                          e.target.style.background = "rgba(255,255,255,0.25)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.transform = "translateY(0)";
+                        }}
+                      >
+                        🎫 Tickets
+                      </button>
+                    </div>
+                    <div className="col-6">
+                      <button
+                        onClick={() => navigate("/booking-dashboard")}
+                        style={{
+                          background: "rgba(255,255,255,0.15)",
+                          color: "white",
+                          border: "1px solid rgba(255,255,255,0.3)",
+                          padding: "10px",
+                          borderRadius: "10px",
+                          fontSize: "12px",
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          width: "100%",
+                          transition: "all 0.2s ease"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.transform = "translateY(-1px)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.transform = "translateY(0)";
+                        }}
+                      >
+                        📊 Dashboard
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleSignOut}
+                    style={{
+                      background: "rgba(220,53,69,0.8)",
+                      color: "white",
+                      border: "2px solid rgba(220,53,69,0.6)",
+                      padding: "12px 20px",
+                      borderRadius: "12px",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.transform = "translateY(-2px)";
+                      e.target.style.boxShadow = "0 8px 25px rgba(220,53,69,0.4)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.transform = "translateY(0)";
+                      e.target.style.boxShadow = "none";
+                    }}
+                  >
+                    🚪 Sign Out
+                  </button>
+                </div>
+                
+                {/* Scroll Control Buttons */}
+                <div className="scroll-buttons">
+                  <button 
+                    className="scroll-btn"
+                    onClick={() => {
+                      const dashboard = document.querySelector('.account-dashboard-scroll');
+                      dashboard.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                  >
+                    ⬆️ Scroll to Top
+                  </button>
+                  <button 
+                    className="scroll-btn"
+                    onClick={() => {
+                      const dashboard = document.querySelector('.account-dashboard-scroll');
+                      dashboard.scrollTo({ top: dashboard.scrollHeight, behavior: 'smooth' });
+                    }}
+                  >
+                    ⬇️ Scroll to Bottom
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* PROFILE EDIT MODAL */}
+        {showProfileEdit && (
+          <div 
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0,0,0,0.7)",
+              zIndex: 2000,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backdropFilter: "blur(5px)"
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                handleCancelEdit();
+              }
+            }}
+          >
+            <div 
+              style={{
+                background: "white",
+                borderRadius: "25px",
+                padding: "40px",
+                maxWidth: "500px",
+                width: "90%",
+                maxHeight: "90vh",
+                overflowY: "auto",
+                boxShadow: "0 25px 60px rgba(0,0,0,0.3)"
+              }}
+            >
+              <div className="text-center mb-4">
+                <h3 style={{ color: "#333", fontWeight: "700", marginBottom: "10px" }}>
+                  ✏️ Edit Profile
+                </h3>
+                <p style={{ color: "#666", fontSize: "16px" }}>
+                  Update your personal information
+                </p>
+              </div>
+
+              <form onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }}>
+                <div className="row g-3">
+                  <div className="col-12">
+                    <label className="form-label fw-semibold">Username *</label>
+                    <input
+                      type="text"
+                      className="form-control form-control-lg"
+                      value={editingProfile.username}
+                      onChange={(e) => setEditingProfile({...editingProfile, username: e.target.value})}
+                      placeholder="Enter username"
+                      required
+                      style={{ borderRadius: "12px", padding: "15px" }}
+                    />
+                  </div>
+
+                  <div className="col-12">
+                    <label className="form-label fw-semibold">Email Address *</label>
+                    <input
+                      type="email"
+                      className="form-control form-control-lg"
+                      value={editingProfile.email}
+                      onChange={(e) => setEditingProfile({...editingProfile, email: e.target.value})}
+                      placeholder="Enter email address"
+                      required
+                      style={{ borderRadius: "12px", padding: "15px" }}
+                    />
+                  </div>
+
+                  <div className="col-6">
+                    <label className="form-label fw-semibold">Age *</label>
+                    <input
+                      type="number"
+                      className="form-control form-control-lg"
+                      value={editingProfile.age}
+                      onChange={(e) => setEditingProfile({...editingProfile, age: e.target.value})}
+                      placeholder="Age"
+                      min="1"
+                      max="120"
+                      required
+                      style={{ borderRadius: "12px", padding: "15px" }}
+                    />
+                  </div>
+
+                  <div className="col-6">
+                    <label className="form-label fw-semibold">Gender</label>
+                    <select
+                      className="form-control form-control-lg"
+                      value={editingProfile.gender}
+                      onChange={(e) => setEditingProfile({...editingProfile, gender: e.target.value})}
+                      style={{ borderRadius: "12px", padding: "15px" }}
+                    >
+                      <option value="">Select Gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                      <option value="prefer-not-to-say">Prefer not to say</option>
+                    </select>
+                  </div>
+
+                  <div className="col-12">
+                    <label className="form-label fw-semibold">Mobile Number *</label>
+                    <input
+                      type="tel"
+                      className="form-control form-control-lg"
+                      value={editingProfile.mobile}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '');
+                        if (value.length <= 10) {
+                          setEditingProfile({...editingProfile, mobile: value});
+                        }
+                      }}
+                      placeholder="Enter 10-digit mobile number"
+                      maxLength="10"
+                      required
+                      style={{ borderRadius: "12px", padding: "15px" }}
+                    />
+                  </div>
+
+                  <div className="col-12">
+                    <label className="form-label fw-semibold">Country *</label>
+                    <input
+                      type="text"
+                      className="form-control form-control-lg"
+                      value={editingProfile.country}
+                      onChange={(e) => setEditingProfile({...editingProfile, country: e.target.value})}
+                      placeholder="Enter country (e.g., India, USA, UK)"
+                      required
+                      style={{ borderRadius: "12px", padding: "15px" }}
+                    />
+                  </div>
+
+                  <div className="col-12">
+                    <label className="form-label fw-semibold">Date of Birth</label>
+                    <input
+                      type="date"
+                      className="form-control form-control-lg"
+                      value={editingProfile.dob}
+                      onChange={(e) => setEditingProfile({...editingProfile, dob: e.target.value})}
+                      style={{ borderRadius: "12px", padding: "15px" }}
+                    />
+                  </div>
+                </div>
+
+                <div className="d-flex gap-3 mt-4">
+                  <button
+                    type="submit"
+                    style={{
+                      background: "linear-gradient(135deg, #667eea, #764ba2)",
+                      color: "white",
+                      border: "none",
+                      padding: "15px 30px",
+                      borderRadius: "15px",
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      flex: 1,
+                      transition: "all 0.2s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.transform = "translateY(-2px)";
+                      e.target.style.boxShadow = "0 8px 25px rgba(102,126,234,0.4)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.transform = "translateY(0)";
+                      e.target.style.boxShadow = "none";
+                    }}
+                  >
+                    💾 Save Changes
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    style={{
+                      background: "linear-gradient(135deg, #6c757d, #5a6268)",
+                      color: "white",
+                      border: "none",
+                      padding: "15px 30px",
+                      borderRadius: "15px",
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      flex: 1,
+                      transition: "all 0.2s ease"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.transform = "translateY(-2px)";
+                      e.target.style.boxShadow = "0 8px 25px rgba(108,117,125,0.4)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.transform = "translateY(0)";
+                      e.target.style.boxShadow = "none";
+                    }}
+                  >
+                    ❌ Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
         {/* FULL WIDTH CONTAINER */}
         <div className="w-100 p-0 m-0" style={{ maxWidth: "none" }}>
-          <div 
+            <div 
             className="mx-auto rounded-4 shadow-lg p-0 overflow-hidden carousel-container"
             style={{
               maxWidth: "1600px",
               width: "100%",
               margin: "0 auto",
-              background: "linear-gradient(145deg, #ffd700 0%, #ffed4e 50%, #fff8dc 100%)",
+              background: "#ffffff",
               backdropFilter: "blur(10px)",
-              border: "1px solid rgba(255,215,0,0.3)"
+              border: "1px solid rgba(0,0,0,0.1)"
             }}
           >
 
@@ -1014,15 +1960,18 @@ const Home = () => {
               </button>
             </div>
 
+            {/* WELCOME BANNER FOR NON-AUTHENTICATED USERS - REMOVED */}
+            {/* Login/Signup buttons removed from carousel bottom as requested */}
+
             {/* DISCOUNT BANNER SECTION */}
             <div className="py-5" style={{ 
-              background: "linear-gradient(135deg, #f0f4ff 0%, #e8f2ff 100%)", 
+              background: "#ffffff", 
               maxWidth: "1600px", 
               margin: "0 auto",
               paddingLeft: "60px",
               paddingRight: "60px",
-              borderTop: "1px solid rgba(102,126,234,0.1)",
-              borderBottom: "1px solid rgba(102,126,234,0.1)"
+              borderTop: "1px solid #e0e0e0",
+              borderBottom: "1px solid #e0e0e0"
             }}>
               <DiscountBanner onDiscountSelect={(code) => {
                 toast.success(`Discount code ${code} is ready to use!`);
@@ -1082,16 +2031,22 @@ const Home = () => {
 
                 {/* Main Navigation */}
                 <div className="d-flex gap-2" style={{ position: "relative", zIndex: 2 }}>
-                  {["HOME", "SEARCH", "FILTER", "ABOUT", "CONTACT"].map((item) => (
+                  {[
+                    { name: "HOME", color: "#667eea" },
+                    { name: "SEARCH", color: "#764ba2" },
+                    { name: "FILTER", color: "#667eea" },
+                    { name: "ABOUT", color: "#764ba2" },
+                    { name: "CONTACT", color: "#667eea" }
+                  ].map((item) => (
                     <button
-                      key={item}
-                      onClick={() => setActive(item)}
+                      key={item.name}
+                      onClick={() => setActive(item.name)}
                       style={{
-                        background: active === item 
-                          ? "linear-gradient(135deg, #ffd54f 0%, #ffb74d 100%)" 
-                          : "rgba(255,255,255,0.15)",
-                        color: active === item ? "#000" : "#fff",
-                        border: active === item ? "2px solid #ffd54f" : "2px solid rgba(255,255,255,0.3)",
+                        background: active === item.name 
+                          ? `linear-gradient(135deg, ${item.color}, #ffffff)` 
+                          : "#ffffff",
+                        color: active === item.name ? "#000" : item.color,
+                        border: `2px solid ${item.color}`,
                         padding: "12px 20px",
                         borderRadius: "12px",
                         fontWeight: 600,
@@ -1101,198 +2056,217 @@ const Home = () => {
                         textAlign: "center",
                         cursor: "pointer",
                         backdropFilter: "blur(10px)",
-                        textShadow: active === item ? "none" : "0 1px 3px rgba(0,0,0,0.3)"
+                        textShadow: "none",
+                        boxShadow: active === item.name 
+                          ? `0 4px 15px ${item.color}60` 
+                          : "0 2px 8px rgba(0,0,0,0.1)"
                       }}
                       onMouseEnter={(e) => {
-                        if (active !== item) {
-                          e.target.style.background = "rgba(255,255,255,0.25)";
+                        if (active !== item.name) {
+                          e.target.style.background = `linear-gradient(135deg, ${item.color}, #ffffff)`;
+                          e.target.style.color = "#000";
                           e.target.style.transform = "translateY(-2px)";
-                          e.target.style.boxShadow = "0 5px 15px rgba(0,0,0,0.2)";
+                          e.target.style.boxShadow = `0 6px 20px ${item.color}50`;
                         }
                       }}
                       onMouseLeave={(e) => {
-                        if (active !== item) {
-                          e.target.style.background = "rgba(255,255,255,0.15)";
+                        if (active !== item.name) {
+                          e.target.style.background = "#ffffff";
+                          e.target.style.color = item.color;
                           e.target.style.transform = "translateY(0)";
-                          e.target.style.boxShadow = "none";
+                          e.target.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
                         }
                       }}
                     >
-                      {item}
+                      {item.name}
                     </button>
                   ))}
                 </div>
 
-                {/* User Actions */}
+                {/* User Actions - Different based on authentication status */}
                 <div className="d-flex gap-2" style={{ position: "relative", zIndex: 2 }}>
-                  <button
-                    onClick={() => setActive("TICKETS")}
-                    style={{
-                      background: active === "TICKETS" 
-                        ? "linear-gradient(135deg, #28a745 0%, #20c997 100%)" 
-                        : "rgba(255,255,255,0.15)",
-                      color: "#fff",
-                      border: active === "TICKETS" 
-                        ? "2px solid #28a745" 
-                        : "2px solid rgba(255,255,255,0.3)",
-                      padding: "10px 16px",
-                      borderRadius: "12px",
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      minWidth: "120px",
-                      textAlign: "center",
-                      cursor: "pointer",
-                      backdropFilter: "blur(10px)",
-                      textShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                      transition: "all 0.3s ease"
-                    }}
-                    onMouseEnter={(e) => {
-                      if (active !== "TICKETS") {
-                        e.target.style.background = "rgba(255,255,255,0.25)";
-                        e.target.style.transform = "translateY(-2px)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (active !== "TICKETS") {
-                        e.target.style.background = "rgba(255,255,255,0.15)";
-                        e.target.style.transform = "translateY(0)";
-                      }
-                    }}
-                  >
-                    🎫 My Tickets
-                  </button>
+                  {!isLoggedIn ? (
+                    // Show Login/Signup buttons when not authenticated
+                    <>
+                      <button
+                        onClick={() => navigate("/login")}
+                        style={{
+                          background: "#ffffff",
+                          color: "#667eea",
+                          border: "2px solid #667eea",
+                          padding: "12px 20px",
+                          borderRadius: "12px",
+                          fontWeight: 600,
+                          fontSize: "14px",
+                          minWidth: "100px",
+                          textAlign: "center",
+                          cursor: "pointer",
+                          backdropFilter: "blur(10px)",
+                          textShadow: "none",
+                          transition: "all 0.3s ease",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = "linear-gradient(135deg, #667eea, #ffffff)";
+                          e.target.style.color = "#000";
+                          e.target.style.transform = "translateY(-2px)";
+                          e.target.style.boxShadow = "0 6px 20px #667eea50";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = "#ffffff";
+                          e.target.style.color = "#667eea";
+                          e.target.style.transform = "translateY(0)";
+                          e.target.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+                        }}
+                      >
+                        🔑 Login
+                      </button>
+                      <button
+                        onClick={() => navigate("/signup")}
+                        style={{
+                          background: "linear-gradient(135deg, #764ba2, #ffffff)",
+                          color: "#000",
+                          border: "2px solid #764ba2",
+                          padding: "12px 20px",
+                          borderRadius: "12px",
+                          fontWeight: 600,
+                          fontSize: "14px",
+                          minWidth: "100px",
+                          textAlign: "center",
+                          cursor: "pointer",
+                          textShadow: "none",
+                          transition: "all 0.3s ease",
+                          boxShadow: "0 4px 15px rgba(118,75,162,0.4)"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.transform = "translateY(-2px)";
+                          e.target.style.boxShadow = "0 6px 25px rgba(118,75,162,0.6)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.transform = "translateY(0)";
+                          e.target.style.boxShadow = "0 4px 15px rgba(118,75,162,0.4)";
+                        }}
+                      >
+                        📝 Sign Up
+                      </button>
+                    </>
+                  ) : (
+                    // Show user menu when authenticated
+                    <>
+                      <button
+                        onClick={() => setActive("TICKETS")}
+                        style={{
+                          background: active === "TICKETS" 
+                            ? "linear-gradient(135deg, #667eea, #ffffff)" 
+                            : "#ffffff",
+                          color: active === "TICKETS" ? "#000" : "#667eea",
+                          border: "2px solid #667eea",
+                          padding: "10px 16px",
+                          borderRadius: "12px",
+                          fontWeight: 600,
+                          fontSize: "13px",
+                          minWidth: "120px",
+                          textAlign: "center",
+                          cursor: "pointer",
+                          backdropFilter: "blur(10px)",
+                          textShadow: "none",
+                          transition: "all 0.3s ease",
+                          boxShadow: active === "TICKETS" ? "0 4px 15px #667eea60" : "0 2px 8px rgba(0,0,0,0.1)"
+                        }}
+                        onMouseEnter={(e) => {
+                          if (active !== "TICKETS") {
+                            e.target.style.background = "linear-gradient(135deg, #667eea, #ffffff)";
+                            e.target.style.color = "#000";
+                            e.target.style.transform = "translateY(-2px)";
+                            e.target.style.boxShadow = "0 6px 20px #667eea50";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (active !== "TICKETS") {
+                            e.target.style.background = "#ffffff";
+                            e.target.style.color = "#667eea";
+                            e.target.style.transform = "translateY(0)";
+                            e.target.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+                          }
+                        }}
+                      >
+                        🎫 My Tickets
+                      </button>
 
-                  <button
-                    onClick={() => navigate("/cancel-booking")}
-                    style={{
-                      background: "rgba(220,53,69,0.2)",
-                      color: "#fff",
-                      border: "2px solid rgba(220,53,69,0.5)",
-                      padding: "10px 16px",
-                      borderRadius: "12px",
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      transition: "all 0.3s ease",
-                      minWidth: "120px",
-                      textAlign: "center",
-                      cursor: "pointer",
-                      backdropFilter: "blur(10px)",
-                      textShadow: "0 1px 3px rgba(0,0,0,0.3)"
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background = "#dc3545";
-                      e.target.style.transform = "translateY(-2px)";
-                      e.target.style.boxShadow = "0 5px 15px rgba(220,53,69,0.4)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background = "rgba(220,53,69,0.2)";
-                      e.target.style.transform = "translateY(0)";
-                      e.target.style.boxShadow = "none";
-                    }}
-                  >
-                    ❌ Cancel
-                  </button>
+                      <button
+                        onClick={() => navigate("/booking-dashboard")}
+                        style={{
+                          background: "#ffffff",
+                          color: "#764ba2",
+                          border: "2px solid #764ba2",
+                          padding: "10px 16px",
+                          borderRadius: "12px",
+                          fontWeight: 600,
+                          fontSize: "13px",
+                          minWidth: "120px",
+                          textAlign: "center",
+                          cursor: "pointer",
+                          backdropFilter: "blur(10px)",
+                          textShadow: "none",
+                          transition: "all 0.3s ease",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = "linear-gradient(135deg, #764ba2, #ffffff)";
+                          e.target.style.color = "#000";
+                          e.target.style.transform = "translateY(-2px)";
+                          e.target.style.boxShadow = "0 6px 20px #764ba250";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = "#ffffff";
+                          e.target.style.color = "#764ba2";
+                          e.target.style.transform = "translateY(0)";
+                          e.target.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+                        }}
+                      >
+                        📊 Dashboard
+                      </button>
 
-                  <button
-                    onClick={() => navigate("/booking-dashboard")}
-                    style={{
-                      background: "rgba(255,255,255,0.15)",
-                      color: "#fff",
-                      border: "2px solid rgba(255,255,255,0.3)",
-                      padding: "10px 16px",
-                      borderRadius: "12px",
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      minWidth: "120px",
-                      textAlign: "center",
-                      cursor: "pointer",
-                      backdropFilter: "blur(10px)",
-                      textShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                      transition: "all 0.3s ease"
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background = "rgba(255,255,255,0.25)";
-                      e.target.style.transform = "translateY(-2px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background = "rgba(255,255,255,0.15)";
-                      e.target.style.transform = "translateY(0)";
-                    }}
-                  >
-                    📊 Dashboard
-                  </button>
-
-                  <button
-                    onClick={() => setShowDashboard(!showDashboard)}
-                    style={{
-                      background: showDashboard 
-                        ? "linear-gradient(135deg, #4caf50 0%, #45a049 100%)" 
-                        : "rgba(255,255,255,0.15)",
-                      color: "#fff",
-                      border: showDashboard 
-                        ? "2px solid #4caf50" 
-                        : "2px solid rgba(255,255,255,0.3)",
-                      padding: "10px 16px",
-                      borderRadius: "12px",
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      minWidth: "100px",
-                      textAlign: "center",
-                      cursor: "pointer",
-                      backdropFilter: "blur(10px)",
-                      textShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                      transition: "all 0.3s ease"
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!showDashboard) {
-                        e.target.style.background = "rgba(255,255,255,0.25)";
-                        e.target.style.transform = "translateY(-2px)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!showDashboard) {
-                        e.target.style.background = "rgba(255,255,255,0.15)";
-                        e.target.style.transform = "translateY(0)";
-                      }
-                    }}
-                  >
-                    📈 Stats
-                  </button>
-
-                  <button
-                    onClick={handleSignOut}
-                    style={{
-                      background: "linear-gradient(135deg, #ff5252 0%, #f44336 100%)",
-                      color: "#fff",
-                      border: "2px solid #ff5252",
-                      padding: "10px 20px",
-                      borderRadius: "12px",
-                      fontWeight: 600,
-                      fontSize: "13px",
-                      minWidth: "100px",
-                      textAlign: "center",
-                      cursor: "pointer",
-                      textShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                      transition: "all 0.3s ease",
-                      boxShadow: "0 3px 10px rgba(255,82,82,0.3)"
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.transform = "translateY(-2px)";
-                      e.target.style.boxShadow = "0 5px 20px rgba(255,82,82,0.4)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.transform = "translateY(0)";
-                      e.target.style.boxShadow = "0 3px 10px rgba(255,82,82,0.3)";
-                    }}
-                  >
-                    🚪 Sign Out
-                  </button>
+                      <button
+                        onClick={handleSignOut}
+                        style={{
+                          background: "#ffffff",
+                          color: "#667eea",
+                          border: "2px solid #667eea",
+                          padding: "10px 20px",
+                          borderRadius: "12px",
+                          fontWeight: 600,
+                          fontSize: "13px",
+                          minWidth: "100px",
+                          textAlign: "center",
+                          cursor: "pointer",
+                          textShadow: "none",
+                          transition: "all 0.3s ease",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = "linear-gradient(135deg, #667eea, #ffffff)";
+                          e.target.style.color = "#000";
+                          e.target.style.transform = "translateY(-2px)";
+                          e.target.style.boxShadow = "0 6px 20px #667eea50";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = "#ffffff";
+                          e.target.style.color = "#667eea";
+                          e.target.style.transform = "translateY(0)";
+                          e.target.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+                        }}
+                      >
+                        🚪 Sign Out
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* DASHBOARD PANEL */}
-            {showDashboard && (
+            {/* DASHBOARD PANEL - Only show when logged in */}
+            {isLoggedIn && showDashboard && (
               <div className="p-5" style={{ maxWidth: "1600px", margin: "0 auto", paddingLeft: "60px", paddingRight: "60px" }}>
                 <h4 className="fw-bold mb-4" style={{ color: "#000", fontSize: "24px" }}>
                   Dashboard Details
@@ -1338,12 +2312,12 @@ const Home = () => {
                           // Migrate old bookings if needed
                           bookingService.migrateOldBookings();
                           
-                          // Get user bookings using the service
-                          const userBookings = bookingService.getUserBookings().slice(0, 3); // Show only last 3 bookings
+                          // Get user bookings using the state
+                          const recentBookings = userBookings.slice(0, 3); // Show only last 3 bookings
 
-                          return userBookings.length > 0 ? (
+                          return recentBookings.length > 0 ? (
                             <div>
-                              {userBookings.map((booking, index) => (
+                              {recentBookings.map((booking, index) => (
                                 <div key={booking.bookingId} className="border-bottom py-2">
                                   <div className="d-flex justify-content-between align-items-center">
                                     <div>
@@ -1554,12 +2528,12 @@ const Home = () => {
                 <div className="col-lg-7 col-md-6">
                   <div className="row g-3">
                     {[
-                      { img: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=800&h=400&fit=crop&q=80", title: "Europe", cities: "London, Paris, Frankfurt" },
-                      { img: "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?w=800&h=400&fit=crop&q=80", title: "Asia", cities: "Singapore, Tokyo, Bangkok" },
+                      { img: "https://images.unsplash.com/photo-1467269204594-9661b134dd2b?w=800&h=400&fit=crop&q=80", title: "Europe", cities: "London, Paris, Frankfurt" },
+                      { img: "https://images.unsplash.com/photo-1480796927426-f609979314bd?w=800&h=400&fit=crop&q=80", title: "Asia", cities: "Singapore, Tokyo, Bangkok" },
                       { img: "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?w=800&h=400&fit=crop&q=80", title: "Africa", cities: "Cairo, Nairobi, Johannesburg" },
-                      { img: "https://images.unsplash.com/photo-1556388158-158ea5ccacbd?w=800&h=400&fit=crop&q=80", title: "Middle East", cities: "Dubai, Doha, Abu Dhabi" },
-                      { img: "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?w=800&h=400&fit=crop&q=80", title: "Americas", cities: "New York, Toronto, San Francisco" },
-                      { img: "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800&h=400&fit=crop&q=80", title: "Oceania", cities: "Sydney, Melbourne, Auckland" }
+                      { img: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=800&h=400&fit=crop&q=80", title: "Middle East", cities: "Dubai, Doha, Abu Dhabi" },
+                      { img: "https://images.unsplash.com/photo-1485738422979-f5c462d49f74?w=800&h=400&fit=crop&q=80", title: "Americas", cities: "New York, Toronto, San Francisco" },
+                      { img: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=400&fit=crop&q=80", title: "Oceania", cities: "Sydney, Melbourne, Auckland" }
                     ].map((destination, index) => (
                       <div key={index} className="col-4">
                         <div className="text-center">
@@ -2504,8 +3478,15 @@ const Home = () => {
 
                 {(() => {
                   try {
-                    // Get user bookings (now excludes cancelled bookings by default)
-                    const userBookings = bookingService.getUserBookings();
+                    if (bookingsLoading) {
+                      return (
+                        <div className="text-center py-5">
+                          <div className="spinner-border text-primary mb-3" />
+                          <h5>Loading your tickets...</h5>
+                          <p className="text-muted">Please wait while we fetch your booking information.</p>
+                        </div>
+                      );
+                    }
 
                     return userBookings.length > 0 ? (
                       <div className="row g-4">
@@ -2588,13 +3569,7 @@ const Home = () => {
                                 </button>
                                 <button 
                                   className="btn btn-outline-danger btn-sm flex-fill"
-                                  onClick={() => {
-                                    if (window.confirm(`Are you sure you want to cancel this ticket?\n\nFlight: ${booking.flight.from} → ${booking.flight.to}\nBooking ID: ${booking.bookingId}`)) {
-                                      navigate(`/cancel-booking/${booking.bookingId}`, { 
-                                        state: { booking } 
-                                      });
-                                    }
-                                  }}
+                                  onClick={() => handleCancelTicket(booking)}
                                 >
                                   ❌ Cancel Ticket
                                 </button>
@@ -3394,8 +4369,8 @@ const Home = () => {
                   </div>
                 </div>
                 
-                <div className="mt-4 p-3 bg-info bg-opacity-10 rounded-3">
-                  <h6 className="fw-bold text-info mb-2">💡 AI Insights</h6>
+                <div className="mt-4 p-3 bg-success bg-opacity-10 rounded-3">
+                  <h6 className="fw-bold text-success mb-2">💡 Price Insights</h6>
                   <ul className="small mb-0">
                     <li>Historical data shows prices typically drop 10-15% on Tuesdays and Wednesdays</li>
                     <li>This route has 85% booking confidence with current pricing trends</li>

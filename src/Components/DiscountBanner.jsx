@@ -87,9 +87,7 @@ const DiscountBanner = ({ onDiscountSelect }) => {
       {/* Trendy Header */}
       <div className="discount-header mb-4 text-center" style={{ isolation: "isolate" }}>
         <h2 className="fw-bold mb-2" style={{ 
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
+          color: '#333',
           fontSize: '36px',
           isolation: "isolate",
           contain: "layout style paint"

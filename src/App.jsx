@@ -116,11 +116,17 @@ function App() {
     <HashRouter>
       <ToastContainer position="top-center" autoClose={2000} />
       <Routes>
-        {/* Public Routes - Only accessible when NOT logged in */}
+        {/* Home Route - Always accessible, but shows different content based on auth status */}
         <Route 
           path="/" 
-          element={!isLoggedIn ? <Login /> : <Navigate to="/home" replace />} 
+          element={<Home isLoggedIn={isLoggedIn} />} 
         />
+        <Route 
+          path="/home" 
+          element={<Home isLoggedIn={isLoggedIn} />} 
+        />
+        
+        {/* Auth Routes - Only accessible when NOT logged in */}
         <Route 
           path="/login" 
           element={!isLoggedIn ? <Login /> : <Navigate to="/home" replace />} 
@@ -132,42 +138,38 @@ function App() {
 
         {/* Protected Routes - Only accessible when logged in */}
         <Route
-          path="/home"
-          element={isLoggedIn ? <Home /> : <Navigate to="/" replace />}
-        />
-        <Route
           path="/booking"
-          element={isLoggedIn ? <Booking /> : <Navigate to="/" replace />}
+          element={isLoggedIn ? <Booking /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/my-bookings"
-          element={isLoggedIn ? <BookingManagement /> : <Navigate to="/" replace />}
+          element={isLoggedIn ? <Home isLoggedIn={isLoggedIn} initialActive="TICKETS" /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/booking-summary/:bookingId"
-          element={isLoggedIn ? <BookingSummary /> : <Navigate to="/" replace />}
+          element={isLoggedIn ? <BookingSummary /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/booking-dashboard"
-          element={isLoggedIn ? <BookingDashboard /> : <Navigate to="/" replace />}
+          element={isLoggedIn ? <BookingDashboard /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/cancel-booking"
-          element={isLoggedIn ? <BookingSelector /> : <Navigate to="/" replace />}
+          element={isLoggedIn ? <BookingSelector /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/cancel-booking/:bookingId"
-          element={isLoggedIn ? <BookingCancellation /> : <Navigate to="/" replace />}
+          element={isLoggedIn ? <BookingCancellation /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/booking-confirmation"
-          element={isLoggedIn ? <BookingConfirmation /> : <Navigate to="/" replace />}
+          element={isLoggedIn ? <BookingConfirmation /> : <Navigate to="/login" replace />}
         />
 
-        {/* Redirect all invalid routes to appropriate page */}
+        {/* Redirect all invalid routes to home */}
         <Route 
           path="*" 
-          element={isLoggedIn ? <Navigate to="/home" replace /> : <Navigate to="/" replace />} 
+          element={<Navigate to="/" replace />} 
         />
       </Routes>
     </HashRouter>

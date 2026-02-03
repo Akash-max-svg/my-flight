@@ -61,20 +61,47 @@ const Booking = () => {
       return;
     }
 
+    // Get user data for auto-fill
+    const userData = JSON.parse(localStorage.getItem("user") || "{}");
+    
     // Initialize passenger details based on flight passengers
-    const passengers = Array.from({ length: flight.passengers || 1 }, (_, index) => ({
-      id: index + 1,
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      dateOfBirth: '',
-      gender: '',
-      nationality: 'Indian'
-    }));
+    const passengers = Array.from({ length: flight.passengers || 1 }, (_, index) => {
+      // Auto-fill first passenger with user data
+      if (index === 0 && userData.username) {
+        return {
+          id: index + 1,
+          firstName: userData.username.split(' ')[0] || userData.username || '',
+          lastName: userData.username.split(' ').slice(1).join(' ') || '',
+          email: userData.email || '',
+          phone: userData.mobile || '',
+          dateOfBirth: userData.dob || '',
+          gender: userData.gender || '',
+          nationality: userData.country || 'India'
+        };
+      } else {
+        return {
+          id: index + 1,
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          dateOfBirth: '',
+          gender: '',
+          nationality: userData.country || 'India'
+        };
+      }
+    });
     
     // Set form values
     setValue('passengers', passengers);
+    
+    // Show success message if auto-fill was applied
+    if (userData.username && passengers.length > 0) {
+      toast.success("🎉 Passenger details auto-filled from your profile!", {
+        position: "top-center",
+        autoClose: 3000
+      });
+    }
   }, [flight, navigate, setValue]);
 
   // Handle seat selection from SeatSelection component
@@ -337,9 +364,47 @@ const Booking = () => {
           <div className="row">
             <div className="col-12">
               <div className="bg-white rounded-4 shadow-lg p-5">
-                <h3 className="fw-bold mb-4" style={{ color: "#000" }}>
-                  👥 Passenger Details
-                </h3>
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <h3 className="fw-bold mb-0" style={{ color: "#000" }}>
+                    👥 Passenger Details
+                  </h3>
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary btn-sm"
+                    onClick={() => {
+                      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+                      if (!userData.username) {
+                        toast.error("No profile data found to auto-fill");
+                        return;
+                      }
+                      
+                      const currentPassengers = watchedPassengers || [];
+                      const updatedPassengers = currentPassengers.map((passenger, index) => {
+                        if (index === 0) {
+                          return {
+                            ...passenger,
+                            firstName: userData.username.split(' ')[0] || userData.username || '',
+                            lastName: userData.username.split(' ').slice(1).join(' ') || '',
+                            email: userData.email || '',
+                            phone: userData.mobile || '',
+                            dateOfBirth: userData.dob || '',
+                            gender: userData.gender || '',
+                            nationality: userData.country || 'India'
+                          };
+                        }
+                        return {
+                          ...passenger,
+                          nationality: userData.country || 'India'
+                        };
+                      });
+                      
+                      setValue('passengers', updatedPassengers);
+                      toast.success("✅ Details auto-filled from your profile!");
+                    }}
+                  >
+                    🔄 Auto-fill from Profile
+                  </button>
+                </div>
                 
                 {(watchedPassengers || []).map((passenger, index) => (
                   <div key={index} className="mb-5">
