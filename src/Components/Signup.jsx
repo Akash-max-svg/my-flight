@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import apiService from "../services/api";
 
 function Signup() {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ function Signup() {
   });
 
   const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e) => {
     setUser({ ...user, [e.target.name]: e.target.value });
@@ -63,43 +65,57 @@ function Signup() {
     return Object.keys(err).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validate()) {
-      toast.error("Fix the errors");
+      toast.error("Please fix the errors");
       return;
     }
 
-    // ✅ Store full data for login validation
-    localStorage.setItem("signupUser", JSON.stringify(user));
+    setIsLoading(true);
 
-    // ✅ Store minimal data for Home page
-    const loggedInUser = {
-      username: user.username,
-      email: user.email,
-      age: user.age,
-      mobile: user.mobile,
-      gender: user.gender,
-      country: user.country,
-      dob: user.dob,
-      role: "Customer",
-      signupTime: new Date().toLocaleString(),
-    };
+    try {
+      // Call backend API
+      const response = await apiService.register({
+        username: user.username,
+        email: user.email,
+        password: user.password,
+        age: parseInt(user.age),
+        gender: user.gender,
+        mobile: user.mobile,
+        country: user.country,
+        dob: user.dob,
+      });
 
-    // ✅ Home.jsx reads THIS
-    localStorage.setItem("user", JSON.stringify(loggedInUser));
-    localStorage.setItem("isLoggedIn", "true");
+      if (response.status === 'success') {
+        toast.success("Signup successful!");
 
-    // ✅ Trigger auth change event for App.jsx
-    window.dispatchEvent(new Event('authChange'));
+        // Store user data and token
+        const loggedInUser = {
+          ...response.data.user,
+          token: response.data.token,
+          refreshToken: response.data.refreshToken,
+          signupTime: new Date().toLocaleString(),
+        };
 
-    toast.success("Signup successful!");
+        localStorage.setItem("user", JSON.stringify(loggedInUser));
+        localStorage.setItem("isLoggedIn", "true");
 
-    // ✅ Navigate AFTER storing data with a small delay
-    setTimeout(() => {
-      navigate("/home");
-    }, 100);
+        // Trigger auth change event for App.jsx
+        window.dispatchEvent(new Event('authChange'));
+
+        // Navigate to home
+        setTimeout(() => {
+          navigate("/home");
+        }, 100);
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+      toast.error(error.message || "Signup failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -272,8 +288,15 @@ function Signup() {
             />
             <small>{errors.dob}</small>
 
-            <button type="submit" className="btn btn-primary">
-              Sign Up →
+            <button type="submit" className="btn btn-primary" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Creating account...
+                </>
+              ) : (
+                'Sign Up →'
+              )}
             </button>
           </form>
 

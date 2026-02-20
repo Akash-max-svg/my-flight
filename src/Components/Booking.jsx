@@ -16,22 +16,6 @@ const Booking = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [seatSelectionData, setSeatSelectionData] = useState(null);
   const [totalSeatPrice, setTotalSeatPrice] = useState(0);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
-  const [paymentDetails, setPaymentDetails] = useState({
-    // Credit/Debit Card
-    cardNumber: '',
-    expiryDate: '',
-    cvv: '',
-    cardHolderName: '',
-    
-    // UPI
-    upiId: '',
-    
-    // Net Banking
-    bankName: '',
-    accountNumber: '',
-    ifscCode: ''
-  });
 
   // Discount-related state
   const [appliedDiscount, setAppliedDiscount] = useState(null);
@@ -206,51 +190,6 @@ const Booking = () => {
 
   const handleBooking = handleSubmit((data) => {
     try {
-      // Validate payment method selection
-      if (!selectedPaymentMethod) {
-        toast.error("Please select a payment method");
-        return;
-      }
-
-      // Validate payment details based on selected method
-      if (selectedPaymentMethod === 'card') {
-        if (!paymentDetails.cardNumber || !paymentDetails.cardHolderName || 
-            !paymentDetails.expiryDate || !paymentDetails.cvv) {
-          toast.error("Please fill all card details");
-          return;
-        }
-        if (paymentDetails.cardNumber.replace(/\s/g, '').length < 16) {
-          toast.error("Please enter a valid card number");
-          return;
-        }
-        if (paymentDetails.cvv.length < 3) {
-          toast.error("Please enter a valid CVV");
-          return;
-        }
-      } else if (selectedPaymentMethod === 'upi') {
-        if (!paymentDetails.upiId) {
-          toast.error("Please enter your UPI ID");
-          return;
-        }
-        if (!paymentDetails.upiId.includes('@')) {
-          toast.error("Please enter a valid UPI ID (e.g., name@paytm)");
-          return;
-        }
-      } else if (selectedPaymentMethod === 'netbanking') {
-        if (!paymentDetails.bankName || !paymentDetails.accountNumber || !paymentDetails.ifscCode) {
-          toast.error("Please fill all net banking details");
-          return;
-        }
-        if (paymentDetails.accountNumber.length < 8) {
-          toast.error("Please enter a valid account number");
-          return;
-        }
-        if (paymentDetails.ifscCode.length !== 11) {
-          toast.error("Please enter a valid IFSC code");
-          return;
-        }
-      }
-
       const bookingData = {
         flight,
         passengers: data.passengers,
@@ -259,14 +198,7 @@ const Booking = () => {
         subtotal: calculateSubtotal(),
         discountApplied: appliedDiscount,
         discountAmount: discountAmount,
-        seatSelectionData: seatSelectionData,
-        paymentMethod: selectedPaymentMethod,
-        paymentDetails: selectedPaymentMethod === 'card' 
-          ? { 
-              ...paymentDetails, 
-              cardNumber: paymentDetails.cardNumber.replace(/\s/g, '').replace(/\d(?=\d{4})/g, '*') // Mask card number
-            }
-          : paymentDetails
+        seatSelectionData: seatSelectionData
       };
       
       // Save booking using the booking service
@@ -733,228 +665,6 @@ const Booking = () => {
                   </div>
                 </div>
                 
-                {/* Payment Methods */}
-                <div className="mb-4">
-                  <h5 className="fw-bold mb-3">Payment Method</h5>
-                  <div className="row g-3">
-                    <div className="col-md-4">
-                      <div 
-                        className={`border rounded-3 p-3 text-center h-100 payment-method-card ${
-                          selectedPaymentMethod === 'card' ? 'border-primary bg-primary bg-opacity-10' : 'border-secondary'
-                        }`}
-                        style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
-                        onClick={() => setSelectedPaymentMethod('card')}
-                      >
-                        <div className="mb-2" style={{ fontSize: '2rem' }}>💳</div>
-                        <h6 className={selectedPaymentMethod === 'card' ? 'text-primary fw-bold' : ''}>
-                          Credit/Debit Card
-                        </h6>
-                        <small className="text-muted">Visa, Mastercard, Rupay</small>
-                        {selectedPaymentMethod === 'card' && (
-                          <div className="mt-2">
-                            <i className="bi bi-check-circle-fill text-primary"></i>
-                            <small className="text-primary fw-bold d-block">Selected</small>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div 
-                        className={`border rounded-3 p-3 text-center h-100 payment-method-card ${
-                          selectedPaymentMethod === 'upi' ? 'border-primary bg-primary bg-opacity-10' : 'border-secondary'
-                        }`}
-                        style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
-                        onClick={() => setSelectedPaymentMethod('upi')}
-                      >
-                        <div className="mb-2" style={{ fontSize: '2rem' }}>📱</div>
-                        <h6 className={selectedPaymentMethod === 'upi' ? 'text-primary fw-bold' : ''}>
-                          UPI Payment
-                        </h6>
-                        <small className="text-muted">PhonePe, GPay, Paytm</small>
-                        {selectedPaymentMethod === 'upi' && (
-                          <div className="mt-2">
-                            <i className="bi bi-check-circle-fill text-primary"></i>
-                            <small className="text-primary fw-bold d-block">Selected</small>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div 
-                        className={`border rounded-3 p-3 text-center h-100 payment-method-card ${
-                          selectedPaymentMethod === 'netbanking' ? 'border-primary bg-primary bg-opacity-10' : 'border-secondary'
-                        }`}
-                        style={{ cursor: 'pointer', transition: 'all 0.3s ease' }}
-                        onClick={() => setSelectedPaymentMethod('netbanking')}
-                      >
-                        <div className="mb-2" style={{ fontSize: '2rem' }}>🏦</div>
-                        <h6 className={selectedPaymentMethod === 'netbanking' ? 'text-primary fw-bold' : ''}>
-                          Net Banking
-                        </h6>
-                        <small className="text-muted">All major banks</small>
-                        {selectedPaymentMethod === 'netbanking' && (
-                          <div className="mt-2">
-                            <i className="bi bi-check-circle-fill text-primary"></i>
-                            <small className="text-primary fw-bold d-block">Selected</small>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Payment Details Form */}
-                  {selectedPaymentMethod && (
-                    <div className="mt-4 p-4 border rounded-3 bg-light">
-                      <h6 className="fw-bold mb-3">
-                        {selectedPaymentMethod === 'card' && '💳 Card Details'}
-                        {selectedPaymentMethod === 'upi' && '📱 UPI Details'}
-                        {selectedPaymentMethod === 'netbanking' && '🏦 Net Banking Details'}
-                      </h6>
-
-                      {/* Credit/Debit Card Form */}
-                      {selectedPaymentMethod === 'card' && (
-                        <div className="row g-3">
-                          <div className="col-12">
-                            <label className="form-label fw-semibold">Card Number *</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              placeholder="1234 5678 9012 3456"
-                              value={paymentDetails.cardNumber}
-                              onChange={(e) => {
-                                const value = e.target.value.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ');
-                                if (value.length <= 19) {
-                                  setPaymentDetails({...paymentDetails, cardNumber: value});
-                                }
-                              }}
-                              maxLength="19"
-                            />
-                          </div>
-                          <div className="col-md-6">
-                            <label className="form-label fw-semibold">Cardholder Name *</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              placeholder="John Doe"
-                              value={paymentDetails.cardHolderName}
-                              onChange={(e) => setPaymentDetails({...paymentDetails, cardHolderName: e.target.value})}
-                            />
-                          </div>
-                          <div className="col-md-3">
-                            <label className="form-label fw-semibold">Expiry Date *</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              placeholder="MM/YY"
-                              value={paymentDetails.expiryDate}
-                              onChange={(e) => {
-                                const value = e.target.value.replace(/\D/g, '').replace(/(\d{2})(\d)/, '$1/$2');
-                                if (value.length <= 5) {
-                                  setPaymentDetails({...paymentDetails, expiryDate: value});
-                                }
-                              }}
-                              maxLength="5"
-                            />
-                          </div>
-                          <div className="col-md-3">
-                            <label className="form-label fw-semibold">CVV *</label>
-                            <input
-                              type="password"
-                              className="form-control"
-                              placeholder="123"
-                              value={paymentDetails.cvv}
-                              onChange={(e) => {
-                                const value = e.target.value.replace(/\D/g, '');
-                                if (value.length <= 4) {
-                                  setPaymentDetails({...paymentDetails, cvv: value});
-                                }
-                              }}
-                              maxLength="4"
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* UPI Form */}
-                      {selectedPaymentMethod === 'upi' && (
-                        <div className="row g-3">
-                          <div className="col-12">
-                            <label className="form-label fw-semibold">UPI ID *</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              placeholder="yourname@paytm / yourname@phonepe / yourname@gpay"
-                              value={paymentDetails.upiId}
-                              onChange={(e) => setPaymentDetails({...paymentDetails, upiId: e.target.value})}
-                            />
-                            <small className="text-muted">
-                              Enter your UPI ID (e.g., 9876543210@paytm, john@phonepe, user@gpay)
-                            </small>
-                          </div>
-                          <div className="col-12">
-                            <div className="d-flex gap-2 flex-wrap">
-                              <span className="badge bg-primary">PhonePe</span>
-                              <span className="badge bg-success">Google Pay</span>
-                              <span className="badge bg-info">Paytm</span>
-                              <span className="badge bg-warning">BHIM</span>
-                              <span className="badge bg-secondary">Amazon Pay</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Net Banking Form */}
-                      {selectedPaymentMethod === 'netbanking' && (
-                        <div className="row g-3">
-                          <div className="col-md-6">
-                            <label className="form-label fw-semibold">Select Bank *</label>
-                            <select
-                              className="form-select"
-                              value={paymentDetails.bankName}
-                              onChange={(e) => setPaymentDetails({...paymentDetails, bankName: e.target.value})}
-                            >
-                              <option value="">Choose your bank</option>
-                              <option value="sbi">State Bank of India</option>
-                              <option value="hdfc">HDFC Bank</option>
-                              <option value="icici">ICICI Bank</option>
-                              <option value="axis">Axis Bank</option>
-                              <option value="pnb">Punjab National Bank</option>
-                              <option value="bob">Bank of Baroda</option>
-                              <option value="canara">Canara Bank</option>
-                              <option value="union">Union Bank</option>
-                              <option value="kotak">Kotak Mahindra Bank</option>
-                              <option value="yes">Yes Bank</option>
-                            </select>
-                          </div>
-                          <div className="col-md-6">
-                            <label className="form-label fw-semibold">Account Number *</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              placeholder="Enter account number"
-                              value={paymentDetails.accountNumber}
-                              onChange={(e) => {
-                                const value = e.target.value.replace(/\D/g, '');
-                                setPaymentDetails({...paymentDetails, accountNumber: value});
-                              }}
-                            />
-                          </div>
-                          <div className="col-12">
-                            <label className="form-label fw-semibold">IFSC Code *</label>
-                            <input
-                              type="text"
-                              className="form-control"
-                              placeholder="e.g., SBIN0001234"
-                              value={paymentDetails.ifscCode}
-                              onChange={(e) => setPaymentDetails({...paymentDetails, ifscCode: e.target.value.toUpperCase()})}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                
                 <div className="d-flex justify-content-between">
                   <button 
                     className="btn btn-outline-secondary btn-lg"
@@ -983,7 +693,7 @@ const Booking = () => {
                         border: 'none'
                       }}
                     >
-                      💳 Pay ₹{calculateTotalPrice().toLocaleString('en-IN')} & Book
+                      ✅ Confirm Booking - ₹{calculateTotalPrice().toLocaleString('en-IN')}
                       {appliedDiscount && (
                         <small className="d-block" style={{ fontSize: '12px', opacity: 0.9 }}>
                           (Saved ₹{discountAmount.toLocaleString()})

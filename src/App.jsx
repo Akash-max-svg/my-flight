@@ -42,6 +42,11 @@ function App() {
   useEffect(() => {
     const checkAuth = () => {
       try {
+        // Test if localStorage is accessible
+        const testKey = '__storage_test__';
+        localStorage.setItem(testKey, 'test');
+        localStorage.removeItem(testKey);
+        
         const user = localStorage.getItem("user");
         const loginFlag = localStorage.getItem("isLoggedIn");
         const authStatus = user && loginFlag === "true";
@@ -56,10 +61,9 @@ function App() {
         setIsLoggedIn(authStatus);
         setIsLoading(false);
       } catch (error) {
-        console.error("Auth check error:", error);
-        // Clear corrupted auth data
-        localStorage.removeItem("user");
-        localStorage.removeItem("isLoggedIn");
+        console.error("⚠️ localStorage blocked or error:", error);
+        console.log("💡 Tip: Disable tracking prevention or use a different browser");
+        // If localStorage is blocked, just set to not logged in
         setIsLoggedIn(false);
         setIsLoading(false);
       }
@@ -100,13 +104,7 @@ function App() {
             <span className="visually-hidden">Loading...</span>
           </div>
           <h4>✈️ My Flight</h4>
-          <p>Checking authentication...</p>
-          <button 
-            className="btn btn-outline-light btn-sm mt-3"
-            onClick={clearAuthAndForceLogin}
-          >
-            Force Login Page
-          </button>
+          <p>Loading application...</p>
         </div>
       </div>
     );
@@ -163,6 +161,10 @@ function App() {
         />
         <Route
           path="/booking-confirmation"
+          element={isLoggedIn ? <BookingConfirmation /> : <Navigate to="/login" replace />}
+        />
+        <Route
+          path="/booking-confirmation/:bookingId"
           element={isLoggedIn ? <BookingConfirmation /> : <Navigate to="/login" replace />}
         />
 

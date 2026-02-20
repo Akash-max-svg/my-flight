@@ -10,26 +10,88 @@ class FlightFilterAPI {
   // Initialize comprehensive flight database
   initializeFlightDatabase() {
     const baseFlights = [
-      // Domestic India - Major Routes
+      // Domestic India - Major Routes (EXPANDED with multiple airlines and times)
       { id: 1, from: "Delhi", to: "Mumbai", airline: "Air India", price: "₹12,500", time: "2h 15m", departure: "06:30", arrival: "08:45", aircraft: "Boeing 737", class: "Business" },
       { id: 2, from: "Mumbai", to: "Delhi", airline: "IndiGo", price: "₹11,800", time: "2h 20m", departure: "14:15", arrival: "16:35", aircraft: "Airbus A320", class: "Business" },
+      
+      // MORE Delhi-Mumbai flights with different times and airlines
+      { id: 201, from: "Delhi", to: "Mumbai", airline: "Vistara", price: "₹13,200", time: "2h 20m", departure: "09:15", arrival: "11:35", aircraft: "Airbus A320neo", class: "Business" },
+      { id: 202, from: "Delhi", to: "Mumbai", airline: "IndiGo", price: "₹11,900", time: "2h 15m", departure: "12:45", arrival: "15:00", aircraft: "Airbus A321", class: "Business" },
+      { id: 203, from: "Delhi", to: "Mumbai", airline: "SpiceJet", price: "₹10,800", time: "2h 25m", departure: "16:30", arrival: "18:55", aircraft: "Boeing 737", class: "Business" },
+      { id: 204, from: "Delhi", to: "Mumbai", airline: "Air India", price: "₹14,500", time: "2h 15m", departure: "19:00", arrival: "21:15", aircraft: "Boeing 787", class: "First" },
+      { id: 205, from: "Delhi", to: "Mumbai", airline: "Vistara", price: "₹12,800", time: "2h 20m", departure: "21:30", arrival: "23:50", aircraft: "Airbus A320", class: "Business" },
+      
+      // MORE Mumbai-Delhi flights
+      { id: 206, from: "Mumbai", to: "Delhi", airline: "Vistara", price: "₹12,500", time: "2h 20m", departure: "07:00", arrival: "09:20", aircraft: "Airbus A320neo", class: "Business" },
+      { id: 207, from: "Mumbai", to: "Delhi", airline: "Air India", price: "₹13,800", time: "2h 15m", departure: "10:30", arrival: "12:45", aircraft: "Boeing 737", class: "Business" },
+      { id: 208, from: "Mumbai", to: "Delhi", airline: "SpiceJet", price: "₹11,200", time: "2h 25m", departure: "17:15", arrival: "19:40", aircraft: "Boeing 737", class: "Business" },
+      { id: 209, from: "Mumbai", to: "Delhi", airline: "IndiGo", price: "₹12,100", time: "2h 20m", departure: "20:00", arrival: "22:20", aircraft: "Airbus A321", class: "Business" },
+      { id: 210, from: "Mumbai", to: "Delhi", airline: "Vistara", price: "₹15,200", time: "2h 15m", departure: "23:30", arrival: "01:45", aircraft: "Boeing 787", class: "First" },
+      
       { id: 3, from: "Bangalore", to: "Chennai", airline: "SpiceJet", price: "₹8,900", time: "1h 25m", departure: "09:45", arrival: "11:10", aircraft: "Boeing 737", class: "Business" },
       { id: 4, from: "Chennai", to: "Bangalore", airline: "Vistara", price: "₹9,200", time: "1h 30m", departure: "18:20", arrival: "19:50", aircraft: "Airbus A320", class: "Business" },
+      
+      // MORE Bangalore-Chennai flights
+      { id: 211, from: "Bangalore", to: "Chennai", airline: "IndiGo", price: "₹8,500", time: "1h 20m", departure: "06:30", arrival: "07:50", aircraft: "Airbus A320", class: "Business" },
+      { id: 212, from: "Bangalore", to: "Chennai", airline: "Air India", price: "₹9,500", time: "1h 25m", departure: "13:15", arrival: "14:40", aircraft: "Boeing 737", class: "Business" },
+      { id: 213, from: "Bangalore", to: "Chennai", airline: "Vistara", price: "₹10,200", time: "1h 30m", departure: "16:45", arrival: "18:15", aircraft: "Airbus A320", class: "First" },
+      { id: 214, from: "Bangalore", to: "Chennai", airline: "IndiGo", price: "₹8,200", time: "1h 20m", departure: "20:30", arrival: "21:50", aircraft: "Airbus A321", class: "Business" },
+      
+      // MORE Chennai-Bangalore flights
+      { id: 215, from: "Chennai", to: "Bangalore", airline: "IndiGo", price: "₹8,800", time: "1h 25m", departure: "08:00", arrival: "09:25", aircraft: "Airbus A320", class: "Business" },
+      { id: 216, from: "Chennai", to: "Bangalore", airline: "Air India", price: "₹9,800", time: "1h 30m", departure: "11:30", arrival: "13:00", aircraft: "Boeing 737", class: "Business" },
+      { id: 217, from: "Chennai", to: "Bangalore", airline: "SpiceJet", price: "₹8,400", time: "1h 25m", departure: "15:00", arrival: "16:25", aircraft: "Boeing 737", class: "Business" },
+      { id: 218, from: "Chennai", to: "Bangalore", airline: "Vistara", price: "₹10,500", time: "1h 30m", departure: "21:15", arrival: "22:45", aircraft: "Airbus A320", class: "First" },
+      
       { id: 5, from: "Hyderabad", to: "Pune", airline: "Air India", price: "₹10,500", time: "1h 45m", departure: "12:30", arrival: "14:15", aircraft: "Boeing 737", class: "Business" },
       
-      // EMIRATES - Premium Routes
+      // EMIRATES - Premium Routes (EXPANDED with multiple times)
       { id: 6, from: "Delhi", to: "Dubai", airline: "Emirates", price: "₹45,000", time: "3h 30m", departure: "04:15", arrival: "06:45", aircraft: "Boeing 777", class: "Business" },
       { id: 7, from: "Dubai", to: "Delhi", airline: "Emirates", price: "₹46,500", time: "3h 35m", departure: "08:30", arrival: "14:05", aircraft: "Boeing 777", class: "Business" },
       { id: 8, from: "Mumbai", to: "Dubai", airline: "Emirates", price: "₹43,000", time: "3h 20m", departure: "02:45", arrival: "05:05", aircraft: "Airbus A380", class: "First" },
       { id: 9, from: "Dubai", to: "Mumbai", airline: "Emirates", price: "₹44,200", time: "3h 25m", departure: "09:15", arrival: "14:40", aircraft: "Airbus A380", class: "First" },
       { id: 10, from: "Bangalore", to: "Dubai", airline: "Emirates", price: "₹47,000", time: "4h 00m", departure: "01:30", arrival: "04:30", aircraft: "Boeing 787", class: "Business" },
       
-      // QATAR AIRWAYS - Premium Routes
+      // MORE Emirates flights with different times
+      { id: 219, from: "Delhi", to: "Dubai", airline: "Emirates", price: "₹46,200", time: "3h 30m", departure: "10:30", arrival: "13:00", aircraft: "Airbus A380", class: "Business" },
+      { id: 220, from: "Delhi", to: "Dubai", airline: "Emirates", price: "₹48,500", time: "3h 35m", departure: "15:45", arrival: "18:20", aircraft: "Boeing 777", class: "First" },
+      { id: 221, from: "Delhi", to: "Dubai", airline: "Emirates", price: "₹44,800", time: "3h 30m", departure: "22:00", arrival: "00:30", aircraft: "Boeing 787", class: "Business" },
+      
+      { id: 222, from: "Dubai", to: "Delhi", airline: "Emirates", price: "₹47,800", time: "3h 35m", departure: "14:15", arrival: "19:50", aircraft: "Airbus A380", class: "Business" },
+      { id: 223, from: "Dubai", to: "Delhi", airline: "Emirates", price: "₹49,500", time: "3h 40m", departure: "19:30", arrival: "01:10", aircraft: "Boeing 777", class: "First" },
+      { id: 224, from: "Dubai", to: "Delhi", airline: "Emirates", price: "₹45,900", time: "3h 35m", departure: "23:45", arrival: "05:20", aircraft: "Boeing 787", class: "Business" },
+      
+      { id: 225, from: "Mumbai", to: "Dubai", airline: "Emirates", price: "₹44,500", time: "3h 20m", departure: "09:00", arrival: "11:20", aircraft: "Boeing 777", class: "Business" },
+      { id: 226, from: "Mumbai", to: "Dubai", airline: "Emirates", price: "₹46,800", time: "3h 25m", departure: "16:30", arrival: "18:55", aircraft: "Airbus A380", class: "First" },
+      { id: 227, from: "Mumbai", to: "Dubai", airline: "Emirates", price: "₹42,500", time: "3h 20m", departure: "21:15", arrival: "23:35", aircraft: "Boeing 787", class: "Business" },
+      
+      { id: 228, from: "Dubai", to: "Mumbai", airline: "Emirates", price: "₹45,300", time: "3h 25m", departure: "15:00", arrival: "20:25", aircraft: "Boeing 777", class: "Business" },
+      { id: 229, from: "Dubai", to: "Mumbai", airline: "Emirates", price: "₹47,900", time: "3h 30m", departure: "20:45", arrival: "02:15", aircraft: "Airbus A380", class: "First" },
+      { id: 230, from: "Dubai", to: "Mumbai", airline: "Emirates", price: "₹43,800", time: "3h 25m", departure: "03:30", arrival: "08:55", aircraft: "Boeing 787", class: "Business" },
+      
+      // QATAR AIRWAYS - Premium Routes (EXPANDED)
       { id: 11, from: "Delhi", to: "Doha", airline: "Qatar Airways", price: "₹46,000", time: "3h 50m", departure: "02:30", arrival: "05:20", aircraft: "Boeing 787", class: "Business" },
       { id: 12, from: "Doha", to: "Delhi", airline: "Qatar Airways", price: "₹47,500", time: "3h 55m", departure: "07:45", arrival: "13:40", aircraft: "Boeing 787", class: "Business" },
       { id: 13, from: "Mumbai", to: "Doha", airline: "Qatar Airways", price: "₹44,000", time: "3h 35m", departure: "03:15", arrival: "05:50", aircraft: "Airbus A350", class: "Business" },
       { id: 14, from: "Doha", to: "Mumbai", airline: "Qatar Airways", price: "₹45,200", time: "3h 40m", departure: "08:20", arrival: "14:00", aircraft: "Airbus A350", class: "Business" },
       { id: 15, from: "Bangalore", to: "Doha", airline: "Qatar Airways", price: "₹48,000", time: "4h 10m", departure: "01:30", arrival: "04:40", aircraft: "Boeing 787", class: "First" },
+      
+      // MORE Qatar Airways flights
+      { id: 231, from: "Delhi", to: "Doha", airline: "Qatar Airways", price: "₹47,200", time: "3h 50m", departure: "09:00", arrival: "11:50", aircraft: "Airbus A350", class: "Business" },
+      { id: 232, from: "Delhi", to: "Doha", airline: "Qatar Airways", price: "₹49,500", time: "3h 55m", departure: "16:30", arrival: "19:25", aircraft: "Boeing 777", class: "First" },
+      { id: 233, from: "Delhi", to: "Doha", airline: "Qatar Airways", price: "₹45,800", time: "3h 50m", departure: "21:45", arrival: "00:35", aircraft: "Boeing 787", class: "Business" },
+      
+      { id: 234, from: "Doha", to: "Delhi", airline: "Qatar Airways", price: "₹48,800", time: "3h 55m", departure: "13:15", arrival: "19:10", aircraft: "Airbus A350", class: "Business" },
+      { id: 235, from: "Doha", to: "Delhi", airline: "Qatar Airways", price: "₹50,500", time: "4h 00m", departure: "18:00", arrival: "23:00", aircraft: "Boeing 777", class: "First" },
+      { id: 236, from: "Doha", to: "Delhi", airline: "Qatar Airways", price: "₹46,900", time: "3h 55m", departure: "02:30", arrival: "08:25", aircraft: "Boeing 787", class: "Business" },
+      
+      { id: 237, from: "Mumbai", to: "Doha", airline: "Qatar Airways", price: "₹45,500", time: "3h 35m", departure: "10:45", arrival: "13:20", aircraft: "Boeing 777", class: "Business" },
+      { id: 238, from: "Mumbai", to: "Doha", airline: "Qatar Airways", price: "₹47,800", time: "3h 40m", departure: "17:00", arrival: "19:40", aircraft: "Airbus A350", class: "First" },
+      { id: 239, from: "Mumbai", to: "Doha", airline: "Qatar Airways", price: "₹43,500", time: "3h 35m", departure: "22:30", arrival: "01:05", aircraft: "Boeing 787", class: "Business" },
+      
+      { id: 240, from: "Doha", to: "Mumbai", airline: "Qatar Airways", price: "₹46,300", time: "3h 40m", departure: "14:45", arrival: "20:25", aircraft: "Boeing 777", class: "Business" },
+      { id: 241, from: "Doha", to: "Mumbai", airline: "Qatar Airways", price: "₹48,900", time: "3h 45m", departure: "19:15", arrival: "01:00", aircraft: "Airbus A350", class: "First" },
+      { id: 242, from: "Doha", to: "Mumbai", airline: "Qatar Airways", price: "₹44,800", time: "3h 40m", departure: "04:00", arrival: "09:40", aircraft: "Boeing 787", class: "Business" },
       
       // SINGAPORE AIRLINES - Premium Routes
       { id: 16, from: "Delhi", to: "Singapore", airline: "Singapore Airlines", price: "₹55,000", time: "5h 30m", departure: "07:45", arrival: "15:15", aircraft: "Airbus A380", class: "Business" },
@@ -38,12 +100,29 @@ class FlightFilterAPI {
       { id: 19, from: "Singapore", to: "Mumbai", airline: "Singapore Airlines", price: "₹53,300", time: "5h 50m", departure: "09:15", arrival: "13:05", aircraft: "Boeing 777", class: "First" },
       { id: 20, from: "Bangalore", to: "Singapore", airline: "Singapore Airlines", price: "₹54,000", time: "6h 05m", departure: "01:30", arrival: "09:35", aircraft: "Airbus A350", class: "Business" },
       
-      // BRITISH AIRWAYS - Premium Routes
+      // BRITISH AIRWAYS - Premium Routes (EXPANDED)
       { id: 21, from: "Delhi", to: "London", airline: "British Airways", price: "₹85,000", time: "8h 45m", departure: "02:15", arrival: "07:00", aircraft: "Boeing 787", class: "Business" },
       { id: 22, from: "London", to: "Delhi", airline: "British Airways", price: "₹87,500", time: "8h 50m", departure: "21:30", arrival: "12:20", aircraft: "Boeing 787", class: "Business" },
       { id: 23, from: "Mumbai", to: "London", airline: "British Airways", price: "₹82,000", time: "9h 15m", departure: "14:40", arrival: "19:55", aircraft: "Boeing 777", class: "First" },
       { id: 24, from: "London", to: "Mumbai", airline: "British Airways", price: "₹84,200", time: "9h 20m", departure: "22:15", arrival: "13:35", aircraft: "Boeing 777", class: "Business" },
       { id: 25, from: "Bangalore", to: "London", airline: "British Airways", price: "₹88,000", time: "9h 35m", departure: "01:45", arrival: "08:20", aircraft: "Airbus A350", class: "Business" },
+      
+      // MORE British Airways flights
+      { id: 243, from: "Delhi", to: "London", airline: "British Airways", price: "₹86,500", time: "8h 45m", departure: "09:30", arrival: "14:15", aircraft: "Airbus A350", class: "Business" },
+      { id: 244, from: "Delhi", to: "London", airline: "British Airways", price: "₹92,000", time: "8h 50m", departure: "14:00", arrival: "18:50", aircraft: "Boeing 777", class: "First" },
+      { id: 245, from: "Delhi", to: "London", airline: "British Airways", price: "₹84,200", time: "8h 45m", departure: "18:45", arrival: "23:30", aircraft: "Boeing 787", class: "Business" },
+      
+      { id: 246, from: "London", to: "Delhi", airline: "British Airways", price: "₹88,800", time: "8h 50m", departure: "10:15", arrival: "01:05", aircraft: "Airbus A350", class: "Business" },
+      { id: 247, from: "London", to: "Delhi", airline: "British Airways", price: "₹94,500", time: "8h 55m", departure: "15:30", arrival: "06:25", aircraft: "Boeing 777", class: "First" },
+      { id: 248, from: "London", to: "Delhi", airline: "British Airways", price: "₹86,200", time: "8h 50m", departure: "19:00", arrival: "09:50", aircraft: "Boeing 787", class: "Business" },
+      
+      { id: 249, from: "Mumbai", to: "London", airline: "British Airways", price: "₹83,500", time: "9h 15m", departure: "02:30", arrival: "07:45", aircraft: "Boeing 787", class: "Business" },
+      { id: 250, from: "Mumbai", to: "London", airline: "British Airways", price: "₹89,000", time: "9h 20m", departure: "08:00", arrival: "13:20", aircraft: "Airbus A350", class: "First" },
+      { id: 251, from: "Mumbai", to: "London", airline: "British Airways", price: "₹81,500", time: "9h 15m", departure: "20:30", arrival: "01:45", aircraft: "Boeing 777", class: "Business" },
+      
+      { id: 252, from: "London", to: "Mumbai", airline: "British Airways", price: "₹85,300", time: "9h 20m", departure: "09:45", arrival: "01:05", aircraft: "Boeing 787", class: "Business" },
+      { id: 253, from: "London", to: "Mumbai", airline: "British Airways", price: "₹91,500", time: "9h 25m", departure: "16:00", arrival: "07:25", aircraft: "Airbus A350", class: "First" },
+      { id: 254, from: "London", to: "Mumbai", airline: "British Airways", price: "₹83,200", time: "9h 20m", departure: "20:00", arrival: "11:20", aircraft: "Boeing 777", class: "Business" },
       
       // LUFTHANSA - Premium Routes
       { id: 26, from: "Delhi", to: "Frankfurt", airline: "Lufthansa", price: "₹78,000", time: "7h 30m", departure: "01:45", arrival: "06:15", aircraft: "Boeing 747", class: "Business" },

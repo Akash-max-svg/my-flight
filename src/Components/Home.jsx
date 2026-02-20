@@ -410,7 +410,20 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
       setUserData(null);
       setUserBookings([]);
     }
-  }, [isLoggedIn]); // Add isLoggedIn as dependency
+
+    // Debug: Log flight data on component mount
+    console.log('🛩️ Flight data loaded:', {
+      totalFlights: flightData.length,
+      sampleFlights: flightData.slice(0, 3).map(f => ({
+        id: f.id,
+        airline: f.airline,
+        route: `${f.from} → ${f.to}`,
+        price: f.price,
+        class: f.class
+      })),
+      airlines: [...new Set(flightData.map(f => f.airline))].slice(0, 5)
+    });
+  }, [isLoggedIn, flightData]); // Add flightData as dependency
 
   // Update active state when initialActive prop changes
   useEffect(() => {
@@ -588,7 +601,10 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
 
   // ENHANCED SEARCH FUNCTIONALITY
   const handleSearch = () => {
+    console.log('🔍 Search initiated with term:', search);
+    
     if (!search.trim()) {
+      console.log('❌ Empty search term, clearing results');
       setSearchResults([]);
       setShowResults(false);
       return;
@@ -597,56 +613,128 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
     // Allow basic search for browsing, but require login for booking
     // This allows users to see available flights before deciding to login
 
-    const searchTerm = search.toLowerCase();
+    const searchTerm = search.toLowerCase().trim();
+    console.log('🔍 Searching for:', searchTerm);
+    console.log('📊 Total flights in database:', flightData.length);
     
-    // Search in flights
-    const filteredFlights = flightData.filter(
-      (flight) =>
-        flight.from.toLowerCase().includes(searchTerm) ||
-        flight.to.toLowerCase().includes(searchTerm) ||
-        flight.airline.toLowerCase().includes(searchTerm)
-    );
+    // Search in flights with multiple criteria
+    const filteredFlights = flightData.filter((flight) => {
+      const fromMatch = flight.from.toLowerCase().includes(searchTerm);
+      const toMatch = flight.to.toLowerCase().includes(searchTerm);
+      const airlineMatch = flight.airline.toLowerCase().includes(searchTerm);
+      const aircraftMatch = flight.aircraft.toLowerCase().includes(searchTerm);
+      const classMatch = flight.class.toLowerCase().includes(searchTerm);
+      
+      const matches = fromMatch || toMatch || airlineMatch || aircraftMatch || classMatch;
+      
+      if (matches) {
+        console.log('✅ Flight match found:', {
+          id: flight.id,
+          route: `${flight.from} → ${flight.to}`,
+          airline: flight.airline,
+          matchType: fromMatch ? 'from' : toMatch ? 'to' : airlineMatch ? 'airline' : aircraftMatch ? 'aircraft' : 'class'
+        });
+      }
+      
+      return matches;
+    });
+
+    console.log('🎯 Direct flight matches:', filteredFlights.length);
 
     // Search in cities and add flight suggestions
     const matchingCities = cities.filter(city => 
       city.city.toLowerCase().includes(searchTerm) ||
       city.country.toLowerCase().includes(searchTerm) ||
-      city.code.toLowerCase().includes(searchTerm)
+      city.code.toLowerCase().includes(searchTerm) ||
+      city.region.toLowerCase().includes(searchTerm)
     );
+
+    console.log('🏙️ Matching cities:', matchingCities.length, matchingCities.map(c => c.city));
 
     // Search in airlines and add flight suggestions
     const matchingAirlines = airlines.filter(airline =>
       airline.name.toLowerCase().includes(searchTerm) ||
-      airline.country.toLowerCase().includes(searchTerm)
+      airline.country.toLowerCase().includes(searchTerm) ||
+      airline.hub.toLowerCase().includes(searchTerm)
     );
 
-    // Add flights from matching cities and airlines
+    console.log('✈️ Matching airlines:', matchingAirlines.length, matchingAirlines.map(a => a.name));
+
+    // Add flights from matching cities
     matchingCities.forEach(city => {
       const cityFlights = flightData.filter(flight => 
-        flight.from.toLowerCase() === city.city.toLowerCase() ||
-        flight.to.toLowerCase() === city.city.toLowerCase()
+        flight.from.toLowerCase().includes(city.city.toLowerCase()) ||
+        flight.to.toLowerCase().includes(city.city.toLowerCase())
       );
+      console.log(`🏙️ Adding ${cityFlights.length} flights for city: ${city.city}`);
       filteredFlights.push(...cityFlights);
     });
 
+    // Add flights from matching airlines
     matchingAirlines.forEach(airline => {
       const airlineFlights = flightData.filter(flight => 
-        flight.airline.toLowerCase() === airline.name.toLowerCase()
+        flight.airline.toLowerCase().includes(airline.name.toLowerCase())
       );
+      console.log(`✈️ Adding ${airlineFlights.length} flights for airline: ${airline.name}`);
       filteredFlights.push(...airlineFlights);
     });
 
-    // Remove duplicates
+    // Remove duplicates and sort by relevance
     const uniqueFlights = filteredFlights.filter((flight, index, self) => 
       index === self.findIndex(f => f.id === flight.id)
     );
 
-    setSearchResults(uniqueFlights);
+    console.log('🔄 After deduplication:', uniqueFlights.length, 'unique flights');
+
+    // Sort by relevance (exact matches first)
+    const sortedFlights = uniqueFlights.sort((a, b) => {
+      const aExactMatch = a.from.toLowerCase() === searchTerm || 
+                         a.to.toLowerCase() === searchTerm || 
+                         a.airline.toLowerCase() === searchTerm;
+      const bExactMatch = b.from.toLowerCase() === searchTerm || 
+                         b.to.toLowerCase() === searchTerm || 
+                         b.airline.toLowerCase() === searchTerm;
+      
+      if (aExactMatch && !bExactMatch) return -1;
+      if (!aExactMatch && bExactMatch) return 1;
+      return 0;
+    });
+
+    console.log('✅ Final search results:', sortedFlights.length, 'flights found');
+    console.log('📋 Sample results:', sortedFlights.slice(0, 3).map(f => `${f.airline}: ${f.from} → ${f.to}`));
+    
+    setSearchResults(sortedFlights);
     setShowResults(true);
+    setActive("SEARCH");
+
+    // Show appropriate toast message
+    if (sortedFlights.length > 0) {
+      const exactMatches = sortedFlights.filter(flight => 
+        flight.from.toLowerCase() === searchTerm || 
+        flight.to.toLowerCase() === searchTerm || 
+        flight.airline.toLowerCase() === searchTerm
+      ).length;
+      
+      if (exactMatches > 0) {
+        toast.success(`🎯 Found ${sortedFlights.length} flights (${exactMatches} exact matches)`);
+      } else {
+        toast.success(`🔍 Found ${sortedFlights.length} related flights`);
+      }
+    } else {
+      toast.warning(`❌ No flights found for "${search}". Try different keywords.`);
+      console.log('❌ No results found. Search term:', searchTerm);
+      console.log('📊 Available flight data sample:', flightData.slice(0, 5).map(f => ({
+        airline: f.airline,
+        route: `${f.from} → ${f.to}`,
+        class: f.class
+      })));
+    }
   };
 
   // ENHANCED ADVANCED SEARCH FUNCTIONALITY WITH RETURN FLIGHTS
   const handleAdvancedSearch = () => {
+    console.log('🚀 Advanced search initiated with form:', searchForm);
+    
     // Check authentication for booking-related searches
     if (!isLoggedIn) {
       toast.info("Please login to search and book flights");
@@ -664,29 +752,155 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
       return;
     }
 
-    // Filter outbound flights (from -> to)
+    console.log('🔍 Advanced search with criteria:', searchForm);
+    console.log('📊 Total flights available:', flightData.length);
+    
+    // Debug: Show sample flights from database
+    console.log('📋 Sample flights in database:', flightData.slice(0, 5).map(f => ({
+      from: f.from,
+      to: f.to,
+      airline: f.airline,
+      class: f.class
+    })));
+
+    // More flexible flight filtering - match partial city names and be more lenient with class
     const outboundFlights = flightData.filter((flight) => {
-      const matchesRoute = 
-        flight.from.toLowerCase().includes(searchForm.from.toLowerCase()) &&
-        flight.to.toLowerCase().includes(searchForm.to.toLowerCase());
+      // Very flexible route matching - match if either contains the other
+      const fromLower = flight.from.toLowerCase();
+      const toLower = flight.to.toLowerCase();
+      const searchFromLower = searchForm.from.toLowerCase();
+      const searchToLower = searchForm.to.toLowerCase();
       
-      const matchesClass = flight.class.toLowerCase() === searchForm.class.toLowerCase();
+      const fromMatch = fromLower.includes(searchFromLower) || 
+                       searchFromLower.includes(fromLower) ||
+                       fromLower === searchFromLower;
       
-      return matchesRoute && matchesClass;
+      const toMatch = toLower.includes(searchToLower) || 
+                     searchToLower.includes(toLower) ||
+                     toLower === searchToLower;
+      
+      // MUCH MORE FLEXIBLE class matching - accept any class if searching for business
+      const flightClassLower = flight.class.toLowerCase();
+      const searchClassLower = searchForm.class.toLowerCase();
+      
+      // If searching for business, accept Business, First, or Premium Economy
+      let classMatch = false;
+      if (searchClassLower === 'business') {
+        classMatch = flightClassLower.includes('business') || 
+                    flightClassLower.includes('first') || 
+                    flightClassLower.includes('premium');
+      } else if (searchClassLower === 'economy') {
+        classMatch = flightClassLower.includes('economy');
+      } else if (searchClassLower === 'first') {
+        classMatch = flightClassLower.includes('first') || 
+                    flightClassLower.includes('business');
+      } else {
+        // Default flexible matching
+        classMatch = flightClassLower.includes(searchClassLower) ||
+                    searchClassLower.includes(flightClassLower) ||
+                    flightClassLower === searchClassLower;
+      }
+      
+      const matches = fromMatch && toMatch && classMatch;
+      
+      if (matches) {
+        console.log('✅ Outbound flight match:', {
+          id: flight.id,
+          route: `${flight.from} → ${flight.to}`,
+          airline: flight.airline,
+          class: flight.class,
+          departure: flight.departure
+        });
+      }
+      
+      return matches;
     });
+
+    console.log('🛫 Outbound flights found:', outboundFlights.length);
+    
+    // Debug: If no flights found, show why
+    if (outboundFlights.length === 0) {
+      console.log('❌ No flights found. Checking database for route:', {
+        searchFrom: searchForm.from,
+        searchTo: searchForm.to,
+        searchClass: searchForm.class
+      });
+      
+      // Check if route exists at all
+      const routeExists = flightData.some(f => 
+        f.from.toLowerCase().includes(searchForm.from.toLowerCase()) &&
+        f.to.toLowerCase().includes(searchForm.to.toLowerCase())
+      );
+      
+      console.log('Route exists in database:', routeExists);
+      
+      if (routeExists) {
+        console.log('Available classes for this route:', 
+          [...new Set(flightData
+            .filter(f => 
+              f.from.toLowerCase().includes(searchForm.from.toLowerCase()) &&
+              f.to.toLowerCase().includes(searchForm.to.toLowerCase())
+            )
+            .map(f => f.class)
+          )]
+        );
+      }
+    }
 
     // Filter return flights (to -> from) if it's a round trip
     let returnFlights = [];
     if (searchForm.tripType === "roundtrip" && searchForm.returnDate) {
       returnFlights = flightData.filter((flight) => {
-        const matchesReturnRoute = 
-          flight.from.toLowerCase().includes(searchForm.to.toLowerCase()) &&
-          flight.to.toLowerCase().includes(searchForm.from.toLowerCase());
+        const fromLower = flight.from.toLowerCase();
+        const toLower = flight.to.toLowerCase();
+        const searchFromLower = searchForm.from.toLowerCase();
+        const searchToLower = searchForm.to.toLowerCase();
         
-        const matchesClass = flight.class.toLowerCase() === searchForm.class.toLowerCase();
+        // For return flights, reverse the from/to
+        const fromMatch = fromLower.includes(searchToLower) || 
+                         searchToLower.includes(fromLower) ||
+                         fromLower === searchToLower;
         
-        return matchesReturnRoute && matchesClass;
+        const toMatch = toLower.includes(searchFromLower) || 
+                       searchFromLower.includes(toLower) ||
+                       toLower === searchFromLower;
+        
+        const flightClassLower = flight.class.toLowerCase();
+        const searchClassLower = searchForm.class.toLowerCase();
+        
+        // MUCH MORE FLEXIBLE class matching - same as outbound
+        let classMatch = false;
+        if (searchClassLower === 'business') {
+          classMatch = flightClassLower.includes('business') || 
+                      flightClassLower.includes('first') || 
+                      flightClassLower.includes('premium');
+        } else if (searchClassLower === 'economy') {
+          classMatch = flightClassLower.includes('economy');
+        } else if (searchClassLower === 'first') {
+          classMatch = flightClassLower.includes('first') || 
+                      flightClassLower.includes('business');
+        } else {
+          // Default flexible matching
+          classMatch = flightClassLower.includes(searchClassLower) ||
+                      searchClassLower.includes(flightClassLower) ||
+                      flightClassLower === searchClassLower;
+        }
+        
+        const matches = fromMatch && toMatch && classMatch;
+        
+        if (matches) {
+          console.log('✅ Return flight match:', {
+            id: flight.id,
+            route: `${flight.from} → ${flight.to}`,
+            airline: flight.airline,
+            class: flight.class
+          });
+        }
+        
+        return matches;
       });
+      
+      console.log('🛬 Return flights found:', returnFlights.length);
     }
 
     // Apply date-based pricing adjustments for outbound flights
@@ -696,7 +910,8 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
       searchDate: searchForm.departureDate,
       passengers: searchForm.passengers,
       selectedClass: searchForm.class,
-      flightType: 'outbound'
+      flightType: 'outbound',
+      originalPrice: flight.price
     }));
 
     // Apply date-based pricing adjustments for return flights
@@ -706,13 +921,41 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
       searchDate: searchForm.returnDate,
       passengers: searchForm.passengers,
       selectedClass: searchForm.class,
-      flightType: 'return'
+      flightType: 'return',
+      originalPrice: flight.price
     }));
 
     // Combine outbound and return flights
     const allFlights = [...adjustedOutboundFlights, ...adjustedReturnFlights];
     
-    setSearchResults(allFlights);
+    console.log('🔄 Combined flights:', allFlights.length);
+    
+    // Sort by departure time first, then by price
+    const sortedFlights = allFlights.sort((a, b) => {
+      // Prioritize exact matches
+      const aExact = a.from.toLowerCase() === searchForm.from.toLowerCase() && 
+                    a.to.toLowerCase() === searchForm.to.toLowerCase();
+      const bExact = b.from.toLowerCase() === searchForm.from.toLowerCase() && 
+                    b.to.toLowerCase() === searchForm.to.toLowerCase();
+      
+      if (aExact && !bExact) return -1;
+      if (!aExact && bExact) return 1;
+      
+      // Sort by departure time to show variety
+      if (a.departure && b.departure) {
+        return a.departure.localeCompare(b.departure);
+      }
+      
+      // Then sort by price
+      const aPrice = parseInt(a.price.replace(/[₹,]/g, ''));
+      const bPrice = parseInt(b.price.replace(/[₹,]/g, ''));
+      return aPrice - bPrice;
+    });
+    
+    console.log('✅ Advanced search results:', sortedFlights.length, 'flights found');
+    console.log('📋 Sample results:', sortedFlights.slice(0, 5).map(f => `${f.airline}: ${f.from} → ${f.to} @ ${f.departure}`));
+    
+    setSearchResults(sortedFlights);
     setShowResults(true);
     setActive("SEARCH");
 
@@ -720,9 +963,29 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
     const returnCount = adjustedReturnFlights.length;
     
     if (searchForm.tripType === "roundtrip") {
-      toast.success(`Found ${outboundCount} outbound flights and ${returnCount} return flights`);
+      if (outboundCount > 0 || returnCount > 0) {
+        toast.success(`✈️ Found ${outboundCount} outbound and ${returnCount} return flights`);
+      } else {
+        toast.warning(`❌ No flights found for ${searchForm.from} ↔ ${searchForm.to}. Try different cities or dates.`);
+        console.log('❌ No advanced search results. Criteria:', {
+          from: searchForm.from,
+          to: searchForm.to,
+          class: searchForm.class,
+          tripType: searchForm.tripType
+        });
+      }
     } else {
-      toast.success(`Found ${outboundCount} flights for your search criteria`);
+      if (outboundCount > 0) {
+        toast.success(`✈️ Found ${outboundCount} flights for ${searchForm.from} → ${searchForm.to}`);
+      } else {
+        toast.warning(`❌ No flights found for ${searchForm.from} → ${searchForm.to}. Try different cities or dates.`);
+        console.log('❌ No advanced search results. Criteria:', {
+          from: searchForm.from,
+          to: searchForm.to,
+          class: searchForm.class,
+          tripType: searchForm.tripType
+        });
+      }
     }
   };
 
@@ -733,15 +996,36 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
     }));
   };
 
-  // Get city suggestions for autocomplete
+  // Get city suggestions for autocomplete with enhanced matching
   const getCitySuggestions = (query) => {
     if (!query || query.length < 2) return [];
     
-    return cities.filter(city => 
-      city.city.toLowerCase().includes(query.toLowerCase()) ||
-      city.code.toLowerCase().includes(query.toLowerCase()) ||
-      city.country.toLowerCase().includes(query.toLowerCase())
-    ).slice(0, 8);
+    const searchTerm = query.toLowerCase().trim();
+    
+    return cities.filter(city => {
+      const cityMatch = city.city.toLowerCase().includes(searchTerm);
+      const codeMatch = city.code.toLowerCase().includes(searchTerm);
+      const countryMatch = city.country.toLowerCase().includes(searchTerm);
+      const regionMatch = city.region.toLowerCase().includes(searchTerm);
+      
+      return cityMatch || codeMatch || countryMatch || regionMatch;
+    })
+    .sort((a, b) => {
+      // Prioritize exact matches
+      const aExact = a.city.toLowerCase() === searchTerm || a.code.toLowerCase() === searchTerm;
+      const bExact = b.city.toLowerCase() === searchTerm || b.code.toLowerCase() === searchTerm;
+      
+      if (aExact && !bExact) return -1;
+      if (!aExact && bExact) return 1;
+      
+      // Then prioritize popular destinations
+      if (a.popular && !b.popular) return -1;
+      if (!a.popular && b.popular) return 1;
+      
+      // Finally sort alphabetically
+      return a.city.localeCompare(b.city);
+    })
+    .slice(0, 8);
   };
 
   const handleBookNow = (flight) => {
@@ -786,21 +1070,119 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
     console.log('🔍 Applying filters:', filters);
     
     try {
-      // Use the new flightFilterAPI service
-      const filterResult = flightFilterAPI.filterFlights(filters);
+      // Start with all flights
+      let filteredResults = [...flightData];
+      let appliedFilters = [];
+
+      // Apply airline filter
+      if (filters.airline) {
+        filteredResults = filteredResults.filter(flight => 
+          flight.airline.toLowerCase().includes(filters.airline.toLowerCase())
+        );
+        appliedFilters.push(`Airline: ${filters.airline}`);
+      }
+
+      // Apply price range filter
+      if (filters.priceRange.min > 0 || filters.priceRange.max < 200000) {
+        filteredResults = filteredResults.filter(flight => {
+          const price = parseInt(flight.price.replace(/[₹,]/g, ''));
+          return price >= filters.priceRange.min && price <= filters.priceRange.max;
+        });
+        appliedFilters.push(`Price: ₹${filters.priceRange.min.toLocaleString()} - ₹${filters.priceRange.max.toLocaleString()}`);
+      }
+
+      // Apply departure time filter
+      if (filters.departureTime) {
+        filteredResults = filteredResults.filter(flight => {
+          const depTime = flight.departure;
+          const hour = parseInt(depTime.split(':')[0]);
+          
+          switch (filters.departureTime) {
+            case 'morning':
+              return hour >= 6 && hour < 12;
+            case 'afternoon':
+              return hour >= 12 && hour < 18;
+            case 'evening':
+              return hour >= 18 && hour < 24;
+            case 'night':
+              return hour >= 0 && hour < 6;
+            default:
+              return true;
+          }
+        });
+        appliedFilters.push(`Time: ${filters.departureTime}`);
+      }
+
+      // Apply class filter
+      if (filters.class) {
+        filteredResults = filteredResults.filter(flight => 
+          flight.class.toLowerCase().includes(filters.class.toLowerCase())
+        );
+        appliedFilters.push(`Class: ${filters.class}`);
+      }
+
+      // Apply aircraft filter
+      if (filters.aircraft) {
+        filteredResults = filteredResults.filter(flight => 
+          flight.aircraft.toLowerCase().includes(filters.aircraft.toLowerCase())
+        );
+        appliedFilters.push(`Aircraft: ${filters.aircraft}`);
+      }
+
+      // Apply duration filter
+      if (filters.duration) {
+        filteredResults = filteredResults.filter(flight => {
+          const duration = flight.time;
+          const hours = parseFloat(duration.replace(/[^\d.]/g, ''));
+          
+          switch (filters.duration) {
+            case 'short':
+              return hours <= 2;
+            case 'medium':
+              return hours > 2 && hours <= 5;
+            case 'long':
+              return hours > 5;
+            default:
+              return true;
+          }
+        });
+        appliedFilters.push(`Duration: ${filters.duration}`);
+      }
+
+      // Apply route filters
+      if (filters.from) {
+        filteredResults = filteredResults.filter(flight => 
+          flight.from.toLowerCase().includes(filters.from.toLowerCase())
+        );
+        appliedFilters.push(`From: ${filters.from}`);
+      }
+
+      if (filters.to) {
+        filteredResults = filteredResults.filter(flight => 
+          flight.to.toLowerCase().includes(filters.to.toLowerCase())
+        );
+        appliedFilters.push(`To: ${filters.to}`);
+      }
+
+      // Sort results by price (ascending)
+      filteredResults.sort((a, b) => {
+        const aPrice = parseInt(a.price.replace(/[₹,]/g, ''));
+        const bPrice = parseInt(b.price.replace(/[₹,]/g, ''));
+        return aPrice - bPrice;
+      });
       
-      console.log('✅ Filter API result:', filterResult);
+      console.log('✅ Filter results:', filteredResults.length, 'flights found');
+      console.log('📋 Applied filters:', appliedFilters);
       
-      setFilteredFlights(filterResult.flights);
-      setSearchResults(filterResult.flights);
+      setFilteredFlights(filteredResults);
+      setSearchResults(filteredResults);
       setShowResults(true);
       setActive("SEARCH");
       
-      toast.success(`Found ${filterResult.totalResults} flights matching your filters`);
-      
-      // Log applied filters for debugging
-      if (filterResult.appliedFilters.length > 0) {
-        console.log('📋 Applied filters:', filterResult.appliedFilters);
+      if (filteredResults.length > 0) {
+        toast.success(`🎯 Found ${filteredResults.length} flights matching your filters`);
+      } else {
+        toast.warning(`❌ No flights match your filter criteria. Try adjusting the filters.`);
       }
       
     } catch (error) {
@@ -810,6 +1192,7 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
   };
 
   const clearFilters = () => {
+    console.log('🗑️ Clearing all filters');
     
     setFilters({
       airline: "",
@@ -822,13 +1205,12 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
       to: ""
     });
     
-    // Get all flights from the API without filters
-    const allFlights = flightFilterAPI.filterFlights({});
-    setFilteredFlights(allFlights.flights);
+    // Reset search results
+    setFilteredFlights(flightData);
     setSearchResults([]);
     setShowResults(false);
     
-    toast.info("Filters cleared");
+    toast.info("🧹 All filters cleared");
   };
 
   // BOOKING CONFIRMATION FUNCTIONS
@@ -1048,13 +1430,11 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                   borderRadius: "20px",
                   padding: "25px",
                   boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
-                  border: "2px solid rgba(255,255,255,0.2)",
-                  minWidth: "380px",
-                  maxWidth: "420px",
                   maxHeight: "80vh",
                   overflowY: "auto",
                   color: "white",
-                  zIndex: 1000
+                  zIndex: 1000,
+                  width: "400px"
                 }}
                 className="account-dashboard-scroll"
               >
@@ -1792,7 +2172,12 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                           transition: "all 0.3s ease",
                           color: "#000"
                         }}
-                        onClick={() => setActive("SEARCH")}
+                        onClick={() => {
+                          const searchSection = document.getElementById('search-section');
+                          if (searchSection) {
+                            searchSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }
+                        }}
                         onMouseEnter={(e) => {
                           e.target.style.transform = "translateY(-3px)";
                           e.target.style.boxShadow = "0 12px 35px rgba(255,213,79,0.6)";
@@ -2032,15 +2417,25 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                 {/* Main Navigation */}
                 <div className="d-flex gap-2" style={{ position: "relative", zIndex: 2 }}>
                   {[
-                    { name: "HOME", color: "#667eea" },
-                    { name: "SEARCH", color: "#764ba2" },
-                    { name: "FILTER", color: "#667eea" },
-                    { name: "ABOUT", color: "#764ba2" },
-                    { name: "CONTACT", color: "#667eea" }
+                    { name: "HOME", color: "#667eea", scrollTo: "top" },
+                    { name: "SEARCH", color: "#764ba2", scrollTo: "search-section" },
+                    { name: "FILTER", color: "#667eea", scrollTo: "search-section" },
+                    { name: "ABOUT", color: "#764ba2", scrollTo: "footer" },
+                    { name: "CONTACT", color: "#667eea", scrollTo: "footer" }
                   ].map((item) => (
                     <button
                       key={item.name}
-                      onClick={() => setActive(item.name)}
+                      onClick={() => {
+                        if (item.scrollTo === "top") {
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        } else {
+                          const element = document.getElementById(item.scrollTo);
+                          if (element) {
+                            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }
+                        }
+                        setActive(item.name);
+                      }}
                       style={{
                         background: active === item.name 
                           ? `linear-gradient(135deg, ${item.color}, #ffffff)` 
@@ -2571,7 +2966,7 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
             {active === "HOME" && (
               <>
                 {/* ADVANCED SEARCH SECTION */}
-                <div className="p-5" style={{ 
+                <div id="search-section" className="p-5" style={{ 
                   background: "#fff", 
                   maxWidth: "1600px", 
                   margin: "0 auto",
@@ -2863,6 +3258,26 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                             style={{ borderRadius: "12px" }}
                           >
                             Search
+                          </button>
+                          {/* Debug Test Button */}
+                          <button
+                            className="btn btn-outline-info"
+                            onClick={() => {
+                              console.log('🧪 Debug Test - Flight Data:', {
+                                totalFlights: flightData.length,
+                                firstFlight: flightData[0],
+                                searchTerm: search,
+                                cities: cities.length,
+                                airlines: airlines.length
+                              });
+                              // Test search with "Delhi"
+                              setSearch("Delhi");
+                              setTimeout(() => handleSearch(), 100);
+                            }}
+                            style={{ borderRadius: "12px" }}
+                            title="Debug Test"
+                          >
+                            🧪 Test
                           </button>
                         </div>
                       </div>
@@ -4281,6 +4696,68 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                 </div>
               </div>
             )}
+
+            {/* FOOTER SECTION - Always visible */}
+            <div id="footer" style={{
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              color: "#fff",
+              padding: "60px 60px 40px",
+              marginTop: "80px"
+            }}>
+              <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
+                <div className="row g-5">
+                  {/* About Column */}
+                  <div className="col-lg-4">
+                    <h4 className="fw-bold mb-4">✈️ Business Flight Direct</h4>
+                    <p style={{ opacity: 0.9, lineHeight: "1.8" }}>
+                      Your premium airline booking platform offering luxury business class seats 
+                      at affordable prices across 100+ destinations worldwide.
+                    </p>
+                  </div>
+
+                  {/* Contact Column */}
+                  <div className="col-lg-4">
+                    <h5 className="fw-bold mb-4">📞 Contact Us</h5>
+                    <div style={{ opacity: 0.9 }}>
+                      <p className="mb-2">
+                        <strong>Primary:</strong> <a href="tel:+916301616095" style={{ color: "#fff", textDecoration: "none" }}>+91-6301616095</a>
+                      </p>
+                      <p className="mb-2">
+                        <strong>Booking:</strong> <a href="tel:+917013367409" style={{ color: "#fff", textDecoration: "none" }}>+91-7013367409</a>
+                      </p>
+                      <p className="mb-2">
+                        <strong>Emergency:</strong> <a href="tel:+919390915531" style={{ color: "#fff", textDecoration: "none" }}>+91-9390915531</a>
+                      </p>
+                      <p className="mb-2">
+                        <strong>Email:</strong> <a href="mailto:support@akgroup.com" style={{ color: "#fff", textDecoration: "none" }}>support@akgroup.com</a>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Address Column */}
+                  <div className="col-lg-4">
+                    <h5 className="fw-bold mb-4">🏢 Our Office</h5>
+                    <p style={{ opacity: 0.9, lineHeight: "1.8" }}>
+                      <strong>AK Group Building</strong><br/>
+                      Piduguralla Main Center<br/>
+                      Andhra Pradesh, India<br/><br/>
+                      <strong>CEO:</strong> M. AKASH
+                    </p>
+                  </div>
+                </div>
+
+                <hr style={{ borderColor: "rgba(255,255,255,0.2)", margin: "40px 0 30px" }} />
+
+                <div className="text-center" style={{ opacity: 0.8 }}>
+                  <p className="mb-0">
+                    © 2024 Business Flight Direct - AK Group. All rights reserved.
+                  </p>
+                  <p className="mb-0 mt-2" style={{ fontSize: "14px" }}>
+                    Available 24/7 for your travel needs
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

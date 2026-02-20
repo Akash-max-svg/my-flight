@@ -1,111 +1,90 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import apiService from "../services/api";
 
 function Login() {
   const navigate = useNavigate();
 
   const [data, setData] = useState({
-    username: "",
+    email: "",
     password: "",
-    age: "",
   });
 
   const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Create demo user if none exists and clear any existing auth
+  // Clear any existing authentication on login page load
   useEffect(() => {
-    // Clear any existing authentication on login page load
     localStorage.removeItem("user");
     localStorage.removeItem("isLoggedIn");
-    
-    const existingUser = localStorage.getItem("signupUser");
-    if (!existingUser) {
-      const demoUser = {
-        username: "demo",
-        email: "demo@test.com",
-        password: "Demo123!",
-        confirmPassword: "Demo123!",
-        mobile: "1234567890",
-        age: "25",
-        dob: "2000-01-01"
-      };
-      localStorage.setItem("signupUser", JSON.stringify(demoUser));
-      console.log("✅ Demo user created:", demoUser);
-    }
   }, []);
 
   const handleChange = (e) => {
     setData({ ...data, [e.target.name]: e.target.value });
   };
 
-  const validatePassword = (password) => {
-    const regex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
-    return regex.test(password);
-  };
-
   const validate = () => {
     let newErrors = {};
 
-    if (!data.username) newErrors.username = "Username required";
+    if (!data.email) {
+      newErrors.email = "Email required";
+    } else if (!/\S+@\S+\.\S+/.test(data.email)) {
+      newErrors.email = "Enter a valid email";
+    }
 
-    if (!data.password) newErrors.password = "Password required";
-    else if (!validatePassword(data.password))
-      newErrors.password =
-        "Password must contain uppercase, lowercase, number, special symbol & 8+ characters";
-
-    if (!data.age) newErrors.age = "Age required";
+    if (!data.password) {
+      newErrors.password = "Password required";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
     if (!validate()) {
-      toast.error("Fix the errors");
+      toast.error("Please fix the errors");
       return;
     }
 
-    const storedUser = JSON.parse(localStorage.getItem("signupUser"));
+    setIsLoading(true);
 
-    if (!storedUser) {
-      toast.error("No signup found. Please signup first.");
-      navigate("/signup");
-      return;
-    }
+    try {
+      // Call backend API
+      const response = await apiService.login({
+        email: data.email,
+        password: data.password,
+      });
 
-    if (
-      storedUser.username === data.username &&
-      storedUser.password === data.password &&
-      storedUser.age === data.age
-    ) {
-      toast.success("Login successful!");
+      if (response.status === 'success') {
+        toast.success("Login successful!");
 
-      // ✅ STORE USER FOR HOME PAGE
-      const loggedInUser = {
-        username: storedUser.username,
-        email: storedUser.email || "",
-        age: storedUser.age,
-        role: "Customer",
-        loginTime: new Date().toLocaleString(),
-      };
+        // Store user data and token
+        const loggedInUser = {
+          ...response.data.user,
+          token: response.data.token,
+          refreshToken: response.data.refreshToken,
+          loginTime: new Date().toLocaleString(),
+        };
 
-      // ✅ THIS KEY IS REQUIRED BY Home.jsx
-      localStorage.setItem("user", JSON.stringify(loggedInUser));
-      localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("user", JSON.stringify(loggedInUser));
+        localStorage.setItem("isLoggedIn", "true");
 
-      // ✅ Trigger auth change event for App.jsx
-      window.dispatchEvent(new Event('authChange'));
+        // Trigger auth change event for App.jsx
+        window.dispatchEvent(new Event('authChange'));
 
-      // ✅ Navigate AFTER saving with a small delay to ensure localStorage is set
-      setTimeout(() => {
-        navigate("/home");
-      }, 100);
-    } else {
-      toast.error("Invalid credentials!");
+        // Navigate to home
+        setTimeout(() => {
+          navigate("/home");
+        }, 100);
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error(error.message || "Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -186,31 +165,17 @@ function Login() {
         <div className="login-card">
           <h3 className="login-title">Login to FlightBook</h3>
           
-          {/* Demo Credentials Info */}
-          <div className="alert alert-info" style={{ 
-            fontSize: '12px', 
-            padding: '8px', 
-            marginBottom: '15px',
-            backgroundColor: 'rgba(13, 202, 240, 0.1)',
-            border: '1px solid rgba(13, 202, 240, 0.2)',
-            borderRadius: '8px'
-          }}>
-            <strong>Demo Credentials:</strong><br />
-            Username: demo<br />
-            Password: Demo123!<br />
-            Age: 25
-          </div>
-          
           <form onSubmit={handleLogin}>
             <input
-              type="text"
-              name="username"
+              type="email"
+              name="email"
               className="form-control"
-              placeholder="Username"
+              placeholder="Email Address"
               onChange={handleChange}
-              value={data.username}
+              value={data.email}
+              disabled={isLoading}
             />
-            <small>{errors.username}</small>
+            <small>{errors.email}</small>
 
             <input
               type="password"
@@ -219,21 +184,19 @@ function Login() {
               placeholder="Password"
               onChange={handleChange}
               value={data.password}
+              disabled={isLoading}
             />
             <small>{errors.password}</small>
 
-            <input
-              type="number"
-              name="age"
-              className="form-control"
-              placeholder="Age"
-              onChange={handleChange}
-              value={data.age}
-            />
-            <small>{errors.age}</small>
-
-            <button type="submit" className="btn btn-primary">
-              Login →
+            <button type="submit" className="btn btn-primary" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Logging in...
+                </>
+              ) : (
+                'Login →'
+              )}
             </button>
           </form>
 

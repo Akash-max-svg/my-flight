@@ -38,7 +38,7 @@ const BookingSelector = () => {
   };
 
   const handleCancelBooking = (booking) => {
-    navigate("/cancel-booking/:bookingId", { state: { booking } });
+    navigate(`/cancel-booking/${booking.bookingId}`, { state: { booking } });
   };
 
   const getTimeUntilFlight = (booking) => {

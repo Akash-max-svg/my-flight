@@ -1,8 +1,11 @@
-// Booking Service - Centralized booking management
+// Booking Service - Centralized booking management with backend integration
+import apiService from './api';
+
 class BookingService {
   constructor() {
     this.storageKey = 'flight_bookings';
     this.userKey = 'user';
+    this.useBackend = true; // Toggle to use backend or localStorage
   }
 
   // Get current user
@@ -18,75 +21,151 @@ class BookingService {
   }
 
   // Save a new booking
-  saveBooking(bookingData) {
+  async saveBooking(bookingData) {
     try {
       const currentUser = this.getCurrentUser();
       if (!currentUser) {
         throw new Error('User not logged in');
       }
 
-      // Create comprehensive booking object
-      const booking = {
-        bookingId: this.generateBookingId(),
-        userId: currentUser.email, // Use email as user identifier
-        flight: bookingData.flight,
-        passengers: bookingData.passengers,
-        seats: bookingData.seats,
-        totalPrice: bookingData.totalPrice,
-        basePrice: parseInt(bookingData.flight.price.replace(/[₹,]/g, '')),
-        seatCharges: 0, // Remove seat charges calculation
-        bookingDate: new Date().toISOString(),
-        status: 'confirmed',
-        paymentStatus: 'completed',
-        paymentMethod: 'card', // Default payment method
-        bookingReference: `REF${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      if (this.useBackend && currentUser.token) {
+        // Use backend API
+        const response = await apiService.createBooking({
+          flight: {
+            flightId: bookingData.flight.id || bookingData.flight.flightId,
+            airline: bookingData.flight.airline,
+            from: bookingData.flight.from,
+            to: bookingData.flight.to,
+            departure: bookingData.flight.departure,
+            arrival: bookingData.flight.arrival,
+            departureDate: new Date(bookingData.flight.departureDate || Date.now()),
+            aircraft: bookingData.flight.aircraft,
+            class: bookingData.flight.class,
+            duration: bookingData.flight.duration,
+            price: bookingData.flight.price
+          },
+          passengers: bookingData.passengers.map(p => ({
+            firstName: p.firstName || p.name?.split(' ')[0] || '',
+            lastName: p.lastName || p.name?.split(' ').slice(1).join(' ') || '',
+            age: parseInt(p.age),
+            gender: p.gender,
+            nationality: p.nationality || currentUser.country || 'India',
+            passportNumber: p.passportNumber || '',
+            seatNumber: p.seatNumber || '',
+            mealPreference: p.mealPreference || 'no-preference'
+          })),
+          seats: bookingData.seats || [],
+          contactDetails: {
+            email: bookingData.contactEmail || currentUser.email,
+            phone: bookingData.contactPhone || currentUser.mobile
+          },
+          pricing: {
+            basePrice: parseInt(bookingData.flight.price.replace(/[₹,]/g, '')),
+            taxes: 0,
+            fees: 0,
+            discount: 0,
+            totalPrice: bookingData.totalPrice
+          },
+          payment: {
+            method: bookingData.paymentMethod || 'credit-card',
+            status: 'completed',
+            transactionId: `TXN${Date.now()}`,
+            paidAt: new Date()
+          },
+          travelDate: new Date(bookingData.flight.departureDate || Date.now()),
+          specialRequests: bookingData.specialRequests || ''
+        });
 
-      // Get existing bookings
-      const existingBookings = this.getAllBookings();
-      
-      // Add new booking
-      existingBookings.push(booking);
-      
-      // Save to localStorage
-      localStorage.setItem(this.storageKey, JSON.stringify(existingBookings));
-      
-      return booking;
+        if (response.status === 'success') {
+          return response.data.booking;
+        }
+      } else {
+        // Fallback to localStorage
+        return this.saveBookingToLocalStorage(bookingData);
+      }
     } catch (error) {
       console.error('Error saving booking:', error);
-      throw error;
+      // Fallback to localStorage on error
+      return this.saveBookingToLocalStorage(bookingData);
     }
   }
 
+  // Save booking to localStorage (fallback)
+  saveBookingToLocalStorage(bookingData) {
+    const currentUser = this.getCurrentUser();
+    
+    const booking = {
+      bookingId: this.generateBookingId(),
+      userId: currentUser.email,
+      flight: bookingData.flight,
+      passengers: bookingData.passengers,
+      seats: bookingData.seats,
+      totalPrice: bookingData.totalPrice,
+      basePrice: parseInt(bookingData.flight.price.replace(/[₹,]/g, '')),
+      seatCharges: 0,
+      bookingDate: new Date().toISOString(),
+      status: 'confirmed',
+      paymentStatus: 'completed',
+      paymentMethod: bookingData.paymentMethod || 'card',
+      bookingReference: `REF${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const existingBookings = this.getAllBookingsFromLocalStorage();
+    existingBookings.push(booking);
+    localStorage.setItem(this.storageKey, JSON.stringify(existingBookings));
+    
+    return booking;
+  }
+
   // Get all bookings
-  getAllBookings() {
+  async getAllBookings() {
+    try {
+      const currentUser = this.getCurrentUser();
+      
+      if (this.useBackend && currentUser?.token) {
+        const response = await apiService.getBookings();
+        if (response.status === 'success') {
+          return response.data.bookings;
+        }
+      }
+      
+      return this.getAllBookingsFromLocalStorage();
+    } catch (error) {
+      console.error('Error getting bookings:', error);
+      return this.getAllBookingsFromLocalStorage();
+    }
+  }
+
+  // Get bookings from localStorage
+  getAllBookingsFromLocalStorage() {
     try {
       return JSON.parse(localStorage.getItem(this.storageKey) || '[]');
     } catch (error) {
-      console.error('Error getting bookings:', error);
+      console.error('Error getting bookings from localStorage:', error);
       return [];
     }
   }
 
   // Get bookings for current user (active bookings only)
-  getUserBookings(includeAll = false) {
+  async getUserBookings(includeAll = false) {
     try {
+      const allBookings = await this.getAllBookings();
       const currentUser = this.getCurrentUser();
+      
       if (!currentUser) {
         return [];
       }
 
-      const allBookings = this.getAllBookings();
       const userBookings = allBookings.filter(booking => 
         booking.userId === currentUser.email ||
-        booking.passengers.some(passenger => 
+        booking.user?._id === currentUser._id ||
+        booking.passengers?.some(passenger => 
           passenger.email === currentUser.email
         )
       );
 
-      // By default, exclude cancelled bookings unless specifically requested
       if (includeAll) {
         return userBookings;
       } else {
@@ -99,22 +178,24 @@ class BookingService {
   }
 
   // Get all user bookings including cancelled ones
-  getAllUserBookings() {
+  async getAllUserBookings() {
     return this.getUserBookings(true);
   }
 
   // Get only cancelled bookings for current user
-  getCancelledBookings() {
+  async getCancelledBookings() {
     try {
+      const allBookings = await this.getAllBookings();
       const currentUser = this.getCurrentUser();
+      
       if (!currentUser) {
         return [];
       }
 
-      const allBookings = this.getAllBookings();
       return allBookings.filter(booking => 
         (booking.userId === currentUser.email ||
-         booking.passengers.some(passenger => 
+         booking.user?._id === currentUser._id ||
+         booking.passengers?.some(passenger => 
            passenger.email === currentUser.email
          )) && booking.status === 'cancelled'
       );
@@ -125,38 +206,47 @@ class BookingService {
   }
 
   // Get booking by ID
-  getBookingById(bookingId) {
+  async getBookingById(bookingId) {
     try {
-      const allBookings = this.getAllBookings();
-      return allBookings.find(booking => booking.bookingId === bookingId);
+      const currentUser = this.getCurrentUser();
+      
+      if (this.useBackend && currentUser?.token) {
+        const response = await apiService.getBookingById(bookingId);
+        if (response.status === 'success') {
+          return response.data.booking;
+        }
+      }
+      
+      const allBookings = this.getAllBookingsFromLocalStorage();
+      return allBookings.find(booking => booking.bookingId === bookingId || booking._id === bookingId);
     } catch (error) {
       console.error('Error getting booking by ID:', error);
-      return null;
+      const allBookings = this.getAllBookingsFromLocalStorage();
+      return allBookings.find(booking => booking.bookingId === bookingId || booking._id === bookingId);
     }
   }
 
   // Update booking status
-  updateBookingStatus(bookingId, status, additionalData = {}) {
+  async updateBookingStatus(bookingId, status, additionalData = {}) {
     try {
-      const allBookings = this.getAllBookings();
-      const bookingIndex = allBookings.findIndex(booking => booking.bookingId === bookingId);
+      // Update in localStorage
+      const allBookings = this.getAllBookingsFromLocalStorage();
+      const bookingIndex = allBookings.findIndex(booking => 
+        booking.bookingId === bookingId || booking._id === bookingId
+      );
       
-      if (bookingIndex === -1) {
-        throw new Error('Booking not found');
+      if (bookingIndex !== -1) {
+        allBookings[bookingIndex] = {
+          ...allBookings[bookingIndex],
+          status,
+          updatedAt: new Date().toISOString(),
+          ...additionalData
+        };
+        localStorage.setItem(this.storageKey, JSON.stringify(allBookings));
+        return allBookings[bookingIndex];
       }
-
-      // Update booking
-      allBookings[bookingIndex] = {
-        ...allBookings[bookingIndex],
-        status,
-        updatedAt: new Date().toISOString(),
-        ...additionalData
-      };
-
-      // Save updated bookings
-      localStorage.setItem(this.storageKey, JSON.stringify(allBookings));
       
-      return allBookings[bookingIndex];
+      throw new Error('Booking not found');
     } catch (error) {
       console.error('Error updating booking status:', error);
       throw error;
@@ -164,9 +254,19 @@ class BookingService {
   }
 
   // Cancel booking
-  cancelBooking(bookingId, cancellationReason = 'User requested') {
+  async cancelBooking(bookingId, cancellationReason = 'User requested') {
     try {
-      const booking = this.getBookingById(bookingId);
+      const currentUser = this.getCurrentUser();
+      
+      if (this.useBackend && currentUser?.token) {
+        const response = await apiService.cancelBooking(bookingId, cancellationReason);
+        if (response.status === 'success') {
+          return response.data.booking;
+        }
+      }
+      
+      // Fallback to localStorage
+      const booking = await this.getBookingById(bookingId);
       if (!booking) {
         throw new Error('Booking not found');
       }
@@ -175,15 +275,20 @@ class BookingService {
         throw new Error('Booking is already cancelled');
       }
 
-      // Calculate refund amount based on cancellation policy
       const refundAmount = this.calculateRefund(booking);
 
-      // Update booking with cancellation details
-      const updatedBooking = this.updateBookingStatus(bookingId, 'cancelled', {
+      const updatedBooking = await this.updateBookingStatus(bookingId, 'cancelled', {
         cancellationDate: new Date().toISOString(),
         cancellationReason,
         refundAmount,
-        refundStatus: 'processing'
+        refundStatus: 'processing',
+        cancellation: {
+          isCancelled: true,
+          cancelledAt: new Date().toISOString(),
+          cancellationReason,
+          refundAmount,
+          refundStatus: 'processing'
+        }
       });
 
       return updatedBooking;
@@ -195,27 +300,38 @@ class BookingService {
 
   // Calculate refund amount based on cancellation policy
   calculateRefund(booking) {
-    const bookingDate = new Date(booking.bookingDate);
+    const bookingDate = new Date(booking.bookingDate || booking.createdAt);
     const now = new Date();
-    const hoursUntilFlight = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const daysFromBooking = (now - bookingDate) / (1000 * 60 * 60 * 24);
     
-    // Refund policy based on cancellation time
-    if (hoursUntilFlight > 24) {
-      return Math.round(booking.totalPrice * 0.85); // 85% refund (15% cancellation fee)
-    } else if (hoursUntilFlight > 12) {
-      return Math.round(booking.totalPrice * 0.70); // 70% refund (30% cancellation fee)
-    } else if (hoursUntilFlight > 2) {
-      return Math.round(booking.totalPrice * 0.50); // 50% refund (50% cancellation fee)
-    } else {
-      return 0; // No refund for cancellations within 2 hours
+    let refundPercentage = 0;
+    
+    // 10-day guarantee: 100% refund
+    if (daysFromBooking <= 10) {
+      refundPercentage = 100;
     }
+    // 11-30 days: 75% refund
+    else if (daysFromBooking <= 30) {
+      refundPercentage = 75;
+    }
+    // 31-60 days: 50% refund
+    else if (daysFromBooking <= 60) {
+      refundPercentage = 50;
+    }
+    // More than 60 days: 25% refund
+    else {
+      refundPercentage = 25;
+    }
+    
+    const totalPrice = booking.totalPrice || booking.pricing?.totalPrice || 0;
+    return Math.round((totalPrice * refundPercentage) / 100);
   }
 
   // Get booking statistics for dashboard
-  getBookingStats() {
+  async getBookingStats() {
     try {
-      const allUserBookings = this.getAllUserBookings(); // Include cancelled bookings for stats
-      const activeBookings = this.getUserBookings(); // Only active bookings
+      const allUserBookings = await this.getAllUserBookings();
+      const activeBookings = await this.getUserBookings();
       
       const stats = {
         totalBookings: allUserBookings.length,
@@ -223,12 +339,12 @@ class BookingService {
         confirmedBookings: allUserBookings.filter(b => b.status === 'confirmed').length,
         cancelledBookings: allUserBookings.filter(b => b.status === 'cancelled').length,
         completedBookings: allUserBookings.filter(b => b.status === 'completed').length,
-        totalSpent: activeBookings.reduce((sum, b) => sum + b.totalPrice, 0),
+        totalSpent: activeBookings.reduce((sum, b) => sum + (b.totalPrice || b.pricing?.totalPrice || 0), 0),
         totalRefunds: allUserBookings
-          .filter(b => b.status === 'cancelled' && b.refundAmount)
-          .reduce((sum, b) => sum + (b.refundAmount || 0), 0),
+          .filter(b => b.status === 'cancelled' && (b.refundAmount || b.cancellation?.refundAmount))
+          .reduce((sum, b) => sum + (b.refundAmount || b.cancellation?.refundAmount || 0), 0),
         recentBookings: activeBookings
-          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          .sort((a, b) => new Date(b.createdAt || b.bookingDate) - new Date(a.createdAt || a.bookingDate))
           .slice(0, 5),
         recentCancellations: allUserBookings
           .filter(b => b.status === 'cancelled')
@@ -254,14 +370,14 @@ class BookingService {
   }
 
   // Export bookings as JSON (for backup/download)
-  exportBookings() {
+  async exportBookings() {
     try {
-      const userBookings = this.getUserBookings();
+      const userBookings = await this.getUserBookings();
       const exportData = {
         exportDate: new Date().toISOString(),
         user: this.getCurrentUser(),
         bookings: userBookings,
-        stats: this.getBookingStats()
+        stats: await this.getBookingStats()
       };
 
       return JSON.stringify(exportData, null, 2);
@@ -278,44 +394,6 @@ class BookingService {
       return true;
     } catch (error) {
       console.error('Error clearing bookings:', error);
-      return false;
-    }
-  }
-
-  // Migrate old bookings format to new format (if needed)
-  migrateOldBookings() {
-    try {
-      const oldBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-      
-      if (oldBookings.length > 0) {
-        // Check if migration is needed
-        const needsMigration = oldBookings.some(booking => !booking.bookingReference);
-        
-        if (needsMigration) {
-          const migratedBookings = oldBookings.map(booking => ({
-            ...booking,
-            bookingReference: booking.bookingReference || `REF${Date.now()}${Math.random()}`,
-            paymentStatus: booking.paymentStatus || 'completed',
-            paymentMethod: booking.paymentMethod || 'card',
-            createdAt: booking.createdAt || booking.bookingDate,
-            updatedAt: booking.updatedAt || booking.bookingDate,
-            userId: booking.userId || (booking.passengers[0]?.email)
-          }));
-
-          // Save migrated bookings
-          localStorage.setItem(this.storageKey, JSON.stringify(migratedBookings));
-          
-          // Remove old bookings
-          localStorage.removeItem('bookings');
-          
-          console.log('Bookings migrated successfully');
-          return true;
-        }
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('Error migrating bookings:', error);
       return false;
     }
   }
