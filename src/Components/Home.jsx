@@ -13,6 +13,7 @@ import BookingStats from "./BookingStats";
 import { getAirlineImage, getAirlineServiceImage } from "../services/airlineImageService";
 import flightFilterAPI from "../services/flightFilterAPI";
 import discountService from "../services/discountService";
+import flightDataService from "../services/flightDataService";
 
 // Import local flight image
 import flight3Image from "../assets/flight3.webp";
@@ -310,7 +311,22 @@ const flights = flightFilterAPI.flightDatabase;
 
 const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
   const [active, setActive] = useState(initialActive);
-  const [userData, setUserData] = useState(null);
+  
+  // Initialize userData from localStorage immediately
+  const [userData, setUserData] = useState(() => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        console.log('🔄 Initializing userData from localStorage:', user);
+        return user;
+      }
+    } catch (error) {
+      console.error('❌ Error initializing userData:', error);
+    }
+    return null;
+  });
+  
   const [showDashboard, setShowDashboard] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [editingProfile, setEditingProfile] = useState({
@@ -332,6 +348,13 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
   // User bookings state
   const [userBookings, setUserBookings] = useState([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [bookingStats, setBookingStats] = useState({
+    totalBookings: 0,
+    activeBookings: 0,
+    totalSpent: 0,
+    totalRefunds: 0
+  });
+  const [cancelledBookings, setCancelledBookings] = useState([]);
   
   // Carousel state
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -370,20 +393,142 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
   const navigate = useNavigate();
 
   // Load user bookings
+  // Fetch fresh user data from backend
+  const fetchFreshUserData = async (token) => {
+    try {
+      console.log('🔄 Fetching fresh user profile from backend...');
+      console.log('🔑 Using token:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
+      
+      const response = await userAuthService.getMe();
+      console.log('📥 Backend response:', response);
+      
+      if (response.status === 'success' && response.data?.user) {
+        console.log('✅ Fresh user data received from MongoDB:', response.data.user);
+        
+        // Get current user from localStorage
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        console.log('💾 Current localStorage user:', currentUser);
+        
+        // Merge backend data with stored data (keep token)
+        const completeUserData = {
+          ...currentUser,
+          ...response.data.user,
+          token: currentUser.token,
+          refreshToken: currentUser.refreshToken,
+          signupTime: currentUser.signupTime || currentUser.createdAt,
+          updatedAt: new Date().toISOString()
+        };
+        
+        console.log('🔄 Merged user data:', completeUserData);
+        
+        // Update localStorage and state
+        localStorage.setItem('user', JSON.stringify(completeUserData));
+        setUserData(completeUserData);
+        console.log('💾 ✅ Updated localStorage and state with fresh MongoDB data');
+        console.log('📊 User details now available:', {
+          username: completeUserData.username,
+          email: completeUserData.email,
+          age: completeUserData.age,
+          mobile: completeUserData.mobile,
+          gender: completeUserData.gender,
+          country: completeUserData.country,
+          dob: completeUserData.dob
+        });
+      } else {
+        console.warn('⚠️ Backend response missing user data:', response);
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch fresh user data from MongoDB:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
+      // Continue with stored data
+    }
+  };
+
   const loadUserBookings = async () => {
     if (!isLoggedIn) {
       setUserBookings([]);
+      setCancelledBookings([]);
+      setBookingStats({
+        totalBookings: 0,
+        activeBookings: 0,
+        totalSpent: 0,
+        totalRefunds: 0
+      });
       return;
     }
 
     try {
       setBookingsLoading(true);
-      const bookings = bookingService.getUserBookings();
-      console.log("Loaded user bookings:", bookings);
+      console.log('🔄 Loading user bookings from MongoDB...');
+      
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      console.log('👤 Current user:', {
+        email: currentUser.email,
+        _id: currentUser._id,
+        username: currentUser.username
+      });
+      
+      // Await the async call to get bookings from backend/MongoDB
+      const bookings = await bookingService.getUserBookings();
+      
+      console.log('✅ Loaded user bookings from MongoDB:', bookings);
+      console.log('📊 Total bookings found:', bookings.length);
+      
+      if (bookings.length > 0) {
+        console.log('📋 First booking sample:', {
+          bookingId: bookings[0].bookingId || bookings[0]._id,
+          userId: bookings[0].userId,
+          userObjectId: bookings[0].user,
+          from: bookings[0].flight?.from,
+          to: bookings[0].flight?.to,
+          status: bookings[0].status
+        });
+        
+        // Verify all bookings belong to current user
+        const allBelongToUser = bookings.every(b => 
+          b.userId === currentUser.email || 
+          b.user?._id === currentUser._id ||
+          b.user === currentUser._id
+        );
+        console.log('🔒 All bookings belong to current user:', allBelongToUser);
+        
+        if (!allBelongToUser) {
+          console.error('⚠️ SECURITY ISSUE: Some bookings do not belong to current user!');
+          const foreignBookings = bookings.filter(b => 
+            b.userId !== currentUser.email && 
+            b.user?._id !== currentUser._id &&
+            b.user !== currentUser._id
+          );
+          console.error('❌ Foreign bookings:', foreignBookings);
+        }
+      }
+      
       setUserBookings(bookings);
+      
+      // Load booking stats
+      const stats = await bookingService.getBookingStats();
+      console.log('📈 Booking stats loaded:', stats);
+      setBookingStats(stats);
+      
+      // Load cancelled bookings
+      const cancelled = await bookingService.getCancelledBookings();
+      console.log('❌ Cancelled bookings loaded:', cancelled.length);
+      setCancelledBookings(cancelled);
+      
     } catch (error) {
-      console.error("Error loading user bookings:", error);
+      console.error("❌ Error loading user bookings:", error);
+      console.error("Error stack:", error.stack);
       setUserBookings([]);
+      setCancelledBookings([]);
+      setBookingStats({
+        totalBookings: 0,
+        activeBookings: 0,
+        totalSpent: 0,
+        totalRefunds: 0
+      });
       toast.error("Failed to load your bookings");
     } finally {
       setBookingsLoading(false);
@@ -394,19 +539,41 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
     // Get user data from localStorage when component mounts or isLoggedIn changes
     if (isLoggedIn) {
       try {
-        const user = JSON.parse(localStorage.getItem("user"));
-        console.log("Loading user data:", user);
+        const userStr = localStorage.getItem("user");
+        console.log("📦 Raw user data from localStorage:", userStr);
+        
+        const user = JSON.parse(userStr);
+        console.log("👤 Parsed user data:", {
+          username: user?.username,
+          email: user?.email,
+          age: user?.age,
+          mobile: user?.mobile,
+          gender: user?.gender,
+          country: user?.country,
+          provider: user?.provider,
+          hasToken: !!user?.token
+        });
+        
         if (user) {
           setUserData(user);
+          console.log("✅ User data set in state");
+          
+          // Fetch fresh user data from backend if token exists
+          if (user.token) {
+            fetchFreshUserData(user.token);
+          }
+        } else {
+          console.warn("⚠️ User object is null/undefined");
         }
       } catch (error) {
-        console.error("Error loading user data:", error);
+        console.error("❌ Error loading user data:", error);
         setUserData(null);
       }
       
       // Load user bookings when logged in
       loadUserBookings();
     } else {
+      console.log("🚫 Not logged in - clearing user data");
       setUserData(null);
       setUserBookings([]);
     }
@@ -450,6 +617,25 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
     return () => clearInterval(interval);
   }, [isAutoPlaying]);
 
+  // Close dashboard dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showDashboard) {
+        const dashboardElement = document.querySelector('.account-dashboard-scroll');
+        const buttonElement = event.target.closest('button[title="Account Menu"]');
+        
+        if (dashboardElement && !dashboardElement.contains(event.target) && !buttonElement) {
+          setShowDashboard(false);
+        }
+      }
+    };
+
+    if (showDashboard) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showDashboard]);
+
   // Carousel navigation functions
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % carouselSlides.length);
@@ -479,6 +665,86 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
       navigate(`/cancel-booking/${booking.bookingId}`, { 
         state: { booking } 
       });
+    }
+  };
+
+  // Handle ticket download
+  const handleDownloadTicket = async (booking) => {
+    try {
+      toast.info('Generating your ticket PDF...');
+      
+      const user = JSON.parse(localStorage.getItem('user'));
+      const token = user?.token;
+      
+      if (!token) {
+        toast.error('Please login to download ticket');
+        return;
+      }
+
+      // Call backend API to download ticket
+      const response = await fetch(`http://localhost:5000/api/bookings/${booking._id || booking.bookingId}/ticket`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download ticket');
+      }
+
+      // Get the PDF blob
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `eticket-${booking.bookingId || booking._id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast.success('Ticket downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading ticket:', error);
+      toast.error('Failed to download ticket. Please try again.');
+    }
+  };
+
+  // Handle resend ticket email
+  const handleResendTicketEmail = async (booking) => {
+    try {
+      toast.info('Sending ticket to your email...');
+      
+      const user = JSON.parse(localStorage.getItem('user'));
+      const token = user?.token;
+      
+      if (!token) {
+        toast.error('Please login to resend email');
+        return;
+      }
+
+      // Call backend API to resend email
+      const response = await fetch(`http://localhost:5000/api/bookings/${booking._id || booking.bookingId}/resend-email`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        toast.success('Ticket sent to your email successfully!');
+      } else {
+        toast.error(data.message || 'Failed to send email');
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      toast.error('Failed to send email. Please try again.');
     }
   };
 
@@ -599,8 +865,8 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
     });
   };
 
-  // ENHANCED SEARCH FUNCTIONALITY
-  const handleSearch = () => {
+  // ENHANCED SEARCH FUNCTIONALITY WITH REAL-TIME API
+  const handleSearch = async () => {
     console.log('🔍 Search initiated with term:', search);
     
     if (!search.trim()) {
@@ -610,12 +876,65 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
       return;
     }
 
-    // Allow basic search for browsing, but require login for booking
-    // This allows users to see available flights before deciding to login
-
+    // Show loading state
+    toast.info("🔍 Searching for flights...");
+    
     const searchTerm = search.toLowerCase().trim();
     console.log('🔍 Searching for:', searchTerm);
-    console.log('📊 Total flights in database:', flightData.length);
+    
+    // Try to extract from/to cities from search term
+    // Common patterns: "Delhi to Mumbai", "Delhi Mumbai", "Delhi - Mumbai"
+    const patterns = [
+      /(.+?)\s+to\s+(.+)/i,
+      /(.+?)\s*-\s*(.+)/i,
+      /(.+?)\s*→\s*(.+)/i,
+      /(.+?)\s+(.+)/i
+    ];
+    
+    let fromCity = null;
+    let toCity = null;
+    
+    for (const pattern of patterns) {
+      const match = searchTerm.match(pattern);
+      if (match && match[1] && match[2]) {
+        fromCity = match[1].trim();
+        toCity = match[2].trim();
+        console.log('📍 Extracted route:', { from: fromCity, to: toCity });
+        break;
+      }
+    }
+    
+    // If we have both cities, search using real-time API
+    if (fromCity && toCity) {
+      try {
+        const result = await flightDataService.searchFlights({
+          from: fromCity,
+          to: toCity,
+          departureDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], // Tomorrow
+          passengers: 1,
+          travelClass: 'BUSINESS',
+          max: 50
+        });
+        
+        if (result.success && result.flights.length > 0) {
+          console.log(`✅ Found ${result.flights.length} real-time flights`);
+          setSearchResults(result.flights);
+          setFilteredFlights(result.flights);
+          setShowResults(true);
+          setActive("SEARCH");
+          toast.success(`✈️ Found ${result.flights.length} flights from ${fromCity} to ${toCity}`);
+          return;
+        } else {
+          console.log('⚠️ No real-time flights found, falling back to mock data');
+        }
+      } catch (error) {
+        console.error('❌ Real-time search error:', error);
+        toast.warning('Using local flight data');
+      }
+    }
+    
+    // Fallback to mock data search
+    console.log('📊 Searching in local flight database');
     
     // Search in flights with multiple criteria
     const filteredFlights = flightData.filter((flight) => {
@@ -625,21 +944,8 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
       const aircraftMatch = flight.aircraft.toLowerCase().includes(searchTerm);
       const classMatch = flight.class.toLowerCase().includes(searchTerm);
       
-      const matches = fromMatch || toMatch || airlineMatch || aircraftMatch || classMatch;
-      
-      if (matches) {
-        console.log('✅ Flight match found:', {
-          id: flight.id,
-          route: `${flight.from} → ${flight.to}`,
-          airline: flight.airline,
-          matchType: fromMatch ? 'from' : toMatch ? 'to' : airlineMatch ? 'airline' : aircraftMatch ? 'aircraft' : 'class'
-        });
-      }
-      
-      return matches;
+      return fromMatch || toMatch || airlineMatch || aircraftMatch || classMatch;
     });
-
-    console.log('🎯 Direct flight matches:', filteredFlights.length);
 
     // Search in cities and add flight suggestions
     const matchingCities = cities.filter(city => 
@@ -649,8 +955,6 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
       city.region.toLowerCase().includes(searchTerm)
     );
 
-    console.log('🏙️ Matching cities:', matchingCities.length, matchingCities.map(c => c.city));
-
     // Search in airlines and add flight suggestions
     const matchingAirlines = airlines.filter(airline =>
       airline.name.toLowerCase().includes(searchTerm) ||
@@ -658,15 +962,12 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
       airline.hub.toLowerCase().includes(searchTerm)
     );
 
-    console.log('✈️ Matching airlines:', matchingAirlines.length, matchingAirlines.map(a => a.name));
-
     // Add flights from matching cities
     matchingCities.forEach(city => {
       const cityFlights = flightData.filter(flight => 
         flight.from.toLowerCase().includes(city.city.toLowerCase()) ||
         flight.to.toLowerCase().includes(city.city.toLowerCase())
       );
-      console.log(`🏙️ Adding ${cityFlights.length} flights for city: ${city.city}`);
       filteredFlights.push(...cityFlights);
     });
 
@@ -675,7 +976,6 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
       const airlineFlights = flightData.filter(flight => 
         flight.airline.toLowerCase().includes(airline.name.toLowerCase())
       );
-      console.log(`✈️ Adding ${airlineFlights.length} flights for airline: ${airline.name}`);
       filteredFlights.push(...airlineFlights);
     });
 
@@ -683,8 +983,6 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
     const uniqueFlights = filteredFlights.filter((flight, index, self) => 
       index === self.findIndex(f => f.id === flight.id)
     );
-
-    console.log('🔄 After deduplication:', uniqueFlights.length, 'unique flights');
 
     // Sort by relevance (exact matches first)
     const sortedFlights = uniqueFlights.sort((a, b) => {
@@ -701,38 +999,23 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
     });
 
     console.log('✅ Final search results:', sortedFlights.length, 'flights found');
-    console.log('📋 Sample results:', sortedFlights.slice(0, 3).map(f => `${f.airline}: ${f.from} → ${f.to}`));
     
+    // Update both search results and filtered flights to show only searched results
     setSearchResults(sortedFlights);
+    setFilteredFlights(sortedFlights);
     setShowResults(true);
     setActive("SEARCH");
 
     // Show appropriate toast message
     if (sortedFlights.length > 0) {
-      const exactMatches = sortedFlights.filter(flight => 
-        flight.from.toLowerCase() === searchTerm || 
-        flight.to.toLowerCase() === searchTerm || 
-        flight.airline.toLowerCase() === searchTerm
-      ).length;
-      
-      if (exactMatches > 0) {
-        toast.success(`🎯 Found ${sortedFlights.length} flights (${exactMatches} exact matches)`);
-      } else {
-        toast.success(`🔍 Found ${sortedFlights.length} related flights`);
-      }
+      toast.success(`🔍 Found ${sortedFlights.length} flights`);
     } else {
-      toast.warning(`❌ No flights found for "${search}". Try different keywords.`);
-      console.log('❌ No results found. Search term:', searchTerm);
-      console.log('📊 Available flight data sample:', flightData.slice(0, 5).map(f => ({
-        airline: f.airline,
-        route: `${f.from} → ${f.to}`,
-        class: f.class
-      })));
+      toast.warning(`❌ No flights found for "${search}". Try: "Delhi to Mumbai" or "Hyderabad to Bangalore"`);
     }
   };
 
-  // ENHANCED ADVANCED SEARCH FUNCTIONALITY WITH RETURN FLIGHTS
-  const handleAdvancedSearch = () => {
+  // ENHANCED ADVANCED SEARCH FUNCTIONALITY WITH REAL-TIME API
+  const handleAdvancedSearch = async () => {
     console.log('🚀 Advanced search initiated with form:', searchForm);
     
     // Check authentication for booking-related searches
@@ -752,240 +1035,182 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
       return;
     }
 
-    console.log('🔍 Advanced search with criteria:', searchForm);
-    console.log('📊 Total flights available:', flightData.length);
+    // Show loading state
+    toast.info("🔍 Searching for real-time flights...");
     
-    // Debug: Show sample flights from database
-    console.log('📋 Sample flights in database:', flightData.slice(0, 5).map(f => ({
-      from: f.from,
-      to: f.to,
-      airline: f.airline,
-      class: f.class
-    })));
-
-    // More flexible flight filtering - match partial city names and be more lenient with class
-    const outboundFlights = flightData.filter((flight) => {
-      // Very flexible route matching - match if either contains the other
-      const fromLower = flight.from.toLowerCase();
-      const toLower = flight.to.toLowerCase();
-      const searchFromLower = searchForm.from.toLowerCase();
-      const searchToLower = searchForm.to.toLowerCase();
+    console.log('🔍 Advanced search with criteria:', searchForm);
+    
+    try {
+      // Search for outbound flights using real-time API
+      const outboundResult = await flightDataService.searchFlights({
+        from: searchForm.from,
+        to: searchForm.to,
+        departureDate: searchForm.departureDate,
+        passengers: searchForm.passengers || 1,
+        travelClass: searchForm.class.toUpperCase(),
+        max: 50
+      });
       
-      const fromMatch = fromLower.includes(searchFromLower) || 
-                       searchFromLower.includes(fromLower) ||
-                       fromLower === searchFromLower;
+      let outboundFlights = [];
+      let returnFlights = [];
       
-      const toMatch = toLower.includes(searchToLower) || 
-                     searchToLower.includes(toLower) ||
-                     toLower === searchToLower;
-      
-      // MUCH MORE FLEXIBLE class matching - accept any class if searching for business
-      const flightClassLower = flight.class.toLowerCase();
-      const searchClassLower = searchForm.class.toLowerCase();
-      
-      // If searching for business, accept Business, First, or Premium Economy
-      let classMatch = false;
-      if (searchClassLower === 'business') {
-        classMatch = flightClassLower.includes('business') || 
-                    flightClassLower.includes('first') || 
-                    flightClassLower.includes('premium');
-      } else if (searchClassLower === 'economy') {
-        classMatch = flightClassLower.includes('economy');
-      } else if (searchClassLower === 'first') {
-        classMatch = flightClassLower.includes('first') || 
-                    flightClassLower.includes('business');
+      if (outboundResult.success && outboundResult.flights.length > 0) {
+        console.log(`✅ Found ${outboundResult.flights.length} real-time outbound flights`);
+        outboundFlights = outboundResult.flights;
       } else {
-        // Default flexible matching
-        classMatch = flightClassLower.includes(searchClassLower) ||
-                    searchClassLower.includes(flightClassLower) ||
-                    flightClassLower === searchClassLower;
-      }
-      
-      const matches = fromMatch && toMatch && classMatch;
-      
-      if (matches) {
-        console.log('✅ Outbound flight match:', {
-          id: flight.id,
-          route: `${flight.from} → ${flight.to}`,
-          airline: flight.airline,
-          class: flight.class,
-          departure: flight.departure
+        console.log('⚠️ No real-time outbound flights found, trying mock data');
+        // Fallback to mock data
+        outboundFlights = flightData.filter((flight) => {
+          const fromLower = flight.from.toLowerCase();
+          const toLower = flight.to.toLowerCase();
+          const searchFromLower = searchForm.from.toLowerCase();
+          const searchToLower = searchForm.to.toLowerCase();
+          
+          const fromMatch = fromLower.includes(searchFromLower) || searchFromLower.includes(fromLower);
+          const toMatch = toLower.includes(searchToLower) || searchToLower.includes(toLower);
+          
+          const flightClassLower = flight.class.toLowerCase();
+          const searchClassLower = searchForm.class.toLowerCase();
+          
+          let classMatch = false;
+          if (searchClassLower === 'business') {
+            classMatch = flightClassLower.includes('business') || flightClassLower.includes('first') || flightClassLower.includes('premium');
+          } else if (searchClassLower === 'economy') {
+            classMatch = flightClassLower.includes('economy');
+          } else if (searchClassLower === 'first') {
+            classMatch = flightClassLower.includes('first') || flightClassLower.includes('business');
+          } else {
+            classMatch = flightClassLower.includes(searchClassLower) || searchClassLower.includes(flightClassLower);
+          }
+          
+          return fromMatch && toMatch && classMatch;
         });
       }
       
-      return matches;
-    });
-
-    console.log('🛫 Outbound flights found:', outboundFlights.length);
-    
-    // Debug: If no flights found, show why
-    if (outboundFlights.length === 0) {
-      console.log('❌ No flights found. Checking database for route:', {
-        searchFrom: searchForm.from,
-        searchTo: searchForm.to,
-        searchClass: searchForm.class
-      });
-      
-      // Check if route exists at all
-      const routeExists = flightData.some(f => 
-        f.from.toLowerCase().includes(searchForm.from.toLowerCase()) &&
-        f.to.toLowerCase().includes(searchForm.to.toLowerCase())
-      );
-      
-      console.log('Route exists in database:', routeExists);
-      
-      if (routeExists) {
-        console.log('Available classes for this route:', 
-          [...new Set(flightData
-            .filter(f => 
-              f.from.toLowerCase().includes(searchForm.from.toLowerCase()) &&
-              f.to.toLowerCase().includes(searchForm.to.toLowerCase())
-            )
-            .map(f => f.class)
-          )]
-        );
-      }
-    }
-
-    // Filter return flights (to -> from) if it's a round trip
-    let returnFlights = [];
-    if (searchForm.tripType === "roundtrip" && searchForm.returnDate) {
-      returnFlights = flightData.filter((flight) => {
-        const fromLower = flight.from.toLowerCase();
-        const toLower = flight.to.toLowerCase();
-        const searchFromLower = searchForm.from.toLowerCase();
-        const searchToLower = searchForm.to.toLowerCase();
+      // Search for return flights if round trip
+      if (searchForm.tripType === "roundtrip" && searchForm.returnDate) {
+        const returnResult = await flightDataService.searchFlights({
+          from: searchForm.to, // Reverse for return
+          to: searchForm.from,
+          departureDate: searchForm.returnDate,
+          passengers: searchForm.passengers || 1,
+          travelClass: searchForm.class.toUpperCase(),
+          max: 50
+        });
         
-        // For return flights, reverse the from/to
-        const fromMatch = fromLower.includes(searchToLower) || 
-                         searchToLower.includes(fromLower) ||
-                         fromLower === searchToLower;
-        
-        const toMatch = toLower.includes(searchFromLower) || 
-                       searchFromLower.includes(toLower) ||
-                       toLower === searchFromLower;
-        
-        const flightClassLower = flight.class.toLowerCase();
-        const searchClassLower = searchForm.class.toLowerCase();
-        
-        // MUCH MORE FLEXIBLE class matching - same as outbound
-        let classMatch = false;
-        if (searchClassLower === 'business') {
-          classMatch = flightClassLower.includes('business') || 
-                      flightClassLower.includes('first') || 
-                      flightClassLower.includes('premium');
-        } else if (searchClassLower === 'economy') {
-          classMatch = flightClassLower.includes('economy');
-        } else if (searchClassLower === 'first') {
-          classMatch = flightClassLower.includes('first') || 
-                      flightClassLower.includes('business');
+        if (returnResult.success && returnResult.flights.length > 0) {
+          console.log(`✅ Found ${returnResult.flights.length} real-time return flights`);
+          returnFlights = returnResult.flights;
         } else {
-          // Default flexible matching
-          classMatch = flightClassLower.includes(searchClassLower) ||
-                      searchClassLower.includes(flightClassLower) ||
-                      flightClassLower === searchClassLower;
-        }
-        
-        const matches = fromMatch && toMatch && classMatch;
-        
-        if (matches) {
-          console.log('✅ Return flight match:', {
-            id: flight.id,
-            route: `${flight.from} → ${flight.to}`,
-            airline: flight.airline,
-            class: flight.class
+          console.log('⚠️ No real-time return flights found, trying mock data');
+          // Fallback to mock data
+          returnFlights = flightData.filter((flight) => {
+            const fromLower = flight.from.toLowerCase();
+            const toLower = flight.to.toLowerCase();
+            const searchFromLower = searchForm.from.toLowerCase();
+            const searchToLower = searchForm.to.toLowerCase();
+            
+            // Reverse for return flights
+            const fromMatch = fromLower.includes(searchToLower) || searchToLower.includes(fromLower);
+            const toMatch = toLower.includes(searchFromLower) || searchFromLower.includes(toLower);
+            
+            const flightClassLower = flight.class.toLowerCase();
+            const searchClassLower = searchForm.class.toLowerCase();
+            
+            let classMatch = false;
+            if (searchClassLower === 'business') {
+              classMatch = flightClassLower.includes('business') || flightClassLower.includes('first') || flightClassLower.includes('premium');
+            } else if (searchClassLower === 'economy') {
+              classMatch = flightClassLower.includes('economy');
+            } else if (searchClassLower === 'first') {
+              classMatch = flightClassLower.includes('first') || flightClassLower.includes('business');
+            } else {
+              classMatch = flightClassLower.includes(searchClassLower) || searchClassLower.includes(flightClassLower);
+            }
+            
+            return fromMatch && toMatch && classMatch;
           });
         }
+      }
+
+      // Apply date-based pricing adjustments for outbound flights
+      const adjustedOutboundFlights = outboundFlights.map(flight => ({
+        ...flight,
+        price: flight.source === 'amadeus' ? flight.price : calculateDynamicPrice(flight, { date: searchForm.departureDate }),
+        searchDate: searchForm.departureDate,
+        departureDate: searchForm.departureDate, // Add departureDate for booking page
+        passengers: searchForm.passengers,
+        selectedClass: searchForm.class,
+        flightType: 'outbound',
+        originalPrice: flight.price
+      }));
+
+      // Apply date-based pricing adjustments for return flights
+      const adjustedReturnFlights = returnFlights.map(flight => ({
+        ...flight,
+        price: flight.source === 'amadeus' ? flight.price : calculateDynamicPrice(flight, { date: searchForm.returnDate }),
+        searchDate: searchForm.returnDate,
+        departureDate: searchForm.returnDate, // Add departureDate for booking page
+        passengers: searchForm.passengers,
+        selectedClass: searchForm.class,
+        flightType: 'return',
+        originalPrice: flight.price
+      }));
+
+      // Combine outbound and return flights
+      const allFlights = [...adjustedOutboundFlights, ...adjustedReturnFlights];
+      
+      console.log('🔄 Combined flights:', allFlights.length);
+      
+      // Sort by departure time first, then by price
+      const sortedFlights = allFlights.sort((a, b) => {
+        // Prioritize exact matches
+        const aExact = a.from.toLowerCase() === searchForm.from.toLowerCase() && 
+                      a.to.toLowerCase() === searchForm.to.toLowerCase();
+        const bExact = b.from.toLowerCase() === searchForm.from.toLowerCase() && 
+                      b.to.toLowerCase() === searchForm.to.toLowerCase();
         
-        return matches;
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+        
+        // Sort by departure time to show variety
+        if (a.departure && b.departure) {
+          return a.departure.localeCompare(b.departure);
+        }
+        
+        // Then sort by price
+        const aPrice = typeof a.priceValue === 'number' ? a.priceValue : parseInt(a.price.replace(/[₹,]/g, ''));
+        const bPrice = typeof b.priceValue === 'number' ? b.priceValue : parseInt(b.price.replace(/[₹,]/g, ''));
+        return aPrice - bPrice;
       });
       
-      console.log('🛬 Return flights found:', returnFlights.length);
-    }
-
-    // Apply date-based pricing adjustments for outbound flights
-    const adjustedOutboundFlights = outboundFlights.map(flight => ({
-      ...flight,
-      price: calculateDynamicPrice(flight, { date: searchForm.departureDate }),
-      searchDate: searchForm.departureDate,
-      passengers: searchForm.passengers,
-      selectedClass: searchForm.class,
-      flightType: 'outbound',
-      originalPrice: flight.price
-    }));
-
-    // Apply date-based pricing adjustments for return flights
-    const adjustedReturnFlights = returnFlights.map(flight => ({
-      ...flight,
-      price: calculateDynamicPrice(flight, { date: searchForm.returnDate }),
-      searchDate: searchForm.returnDate,
-      passengers: searchForm.passengers,
-      selectedClass: searchForm.class,
-      flightType: 'return',
-      originalPrice: flight.price
-    }));
-
-    // Combine outbound and return flights
-    const allFlights = [...adjustedOutboundFlights, ...adjustedReturnFlights];
-    
-    console.log('🔄 Combined flights:', allFlights.length);
-    
-    // Sort by departure time first, then by price
-    const sortedFlights = allFlights.sort((a, b) => {
-      // Prioritize exact matches
-      const aExact = a.from.toLowerCase() === searchForm.from.toLowerCase() && 
-                    a.to.toLowerCase() === searchForm.to.toLowerCase();
-      const bExact = b.from.toLowerCase() === searchForm.from.toLowerCase() && 
-                    b.to.toLowerCase() === searchForm.to.toLowerCase();
+      console.log('✅ Advanced search results:', sortedFlights.length, 'flights found');
       
-      if (aExact && !bExact) return -1;
-      if (!aExact && bExact) return 1;
-      
-      // Sort by departure time to show variety
-      if (a.departure && b.departure) {
-        return a.departure.localeCompare(b.departure);
-      }
-      
-      // Then sort by price
-      const aPrice = parseInt(a.price.replace(/[₹,]/g, ''));
-      const bPrice = parseInt(b.price.replace(/[₹,]/g, ''));
-      return aPrice - bPrice;
-    });
-    
-    console.log('✅ Advanced search results:', sortedFlights.length, 'flights found');
-    console.log('📋 Sample results:', sortedFlights.slice(0, 5).map(f => `${f.airline}: ${f.from} → ${f.to} @ ${f.departure}`));
-    
-    setSearchResults(sortedFlights);
-    setShowResults(true);
-    setActive("SEARCH");
+      // Update both search results and filtered flights to show only searched results
+      setSearchResults(sortedFlights);
+      setFilteredFlights(sortedFlights);
+      setShowResults(true);
+      setActive("SEARCH");
 
-    const outboundCount = adjustedOutboundFlights.length;
-    const returnCount = adjustedReturnFlights.length;
-    
-    if (searchForm.tripType === "roundtrip") {
-      if (outboundCount > 0 || returnCount > 0) {
-        toast.success(`✈️ Found ${outboundCount} outbound and ${returnCount} return flights`);
+      const outboundCount = adjustedOutboundFlights.length;
+      const returnCount = adjustedReturnFlights.length;
+      
+      if (searchForm.tripType === "roundtrip") {
+        if (outboundCount > 0 || returnCount > 0) {
+          toast.success(`✈️ Found ${outboundCount} outbound and ${returnCount} return flights`);
+        } else {
+          toast.warning(`❌ No flights found for ${searchForm.from} ↔ ${searchForm.to}. Try different cities or dates.`);
+        }
       } else {
-        toast.warning(`❌ No flights found for ${searchForm.from} ↔ ${searchForm.to}. Try different cities or dates.`);
-        console.log('❌ No advanced search results. Criteria:', {
-          from: searchForm.from,
-          to: searchForm.to,
-          class: searchForm.class,
-          tripType: searchForm.tripType
-        });
+        if (outboundCount > 0) {
+          toast.success(`✈️ Found ${outboundCount} flights for ${searchForm.from} → ${searchForm.to}`);
+        } else {
+          toast.warning(`❌ No flights found for ${searchForm.from} → ${searchForm.to}. Try different cities or dates.`);
+        }
       }
-    } else {
-      if (outboundCount > 0) {
-        toast.success(`✈️ Found ${outboundCount} flights for ${searchForm.from} → ${searchForm.to}`);
-      } else {
-        toast.warning(`❌ No flights found for ${searchForm.from} → ${searchForm.to}. Try different cities or dates.`);
-        console.log('❌ No advanced search results. Criteria:', {
-          from: searchForm.from,
-          to: searchForm.to,
-          class: searchForm.class,
-          tripType: searchForm.tripType
-        });
-      }
+    } catch (error) {
+      console.error('❌ Advanced search error:', error);
+      toast.error('Search failed. Please try again.');
     }
   };
 
@@ -1380,7 +1605,10 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
           >
             {/* Account Symbol Button */}
             <button
-              onClick={() => setShowDashboard(!showDashboard)}
+              onClick={() => {
+                console.log('🖱️ Account button clicked - navigating to profile');
+                navigate('/profile');
+              }}
               style={{
                 width: "60px",
                 height: "60px",
@@ -1406,11 +1634,11 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                 e.target.style.transform = "scale(1)";
                 e.target.style.boxShadow = "0 8px 25px rgba(102,126,234,0.4)";
               }}
-              title="Account Menu"
+              title="View Profile"
             >
               {(() => {
                 try {
-                  const user = JSON.parse(localStorage.getItem("user") || "{}");
+                  const user = userData || JSON.parse(localStorage.getItem("user") || "{}");
                   return (user.username || user.email || "U").charAt(0).toUpperCase();
                 } catch {
                   return "U";
@@ -1419,7 +1647,7 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
             </button>
 
             {/* Dropdown Menu */}
-            {showDashboard && (
+            {showDashboard && userData && (
               <div 
                 style={{
                   position: "absolute",
@@ -1434,9 +1662,11 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                   overflowY: "auto",
                   color: "white",
                   zIndex: 1000,
-                  width: "400px"
+                  width: "400px",
+                  border: "2px solid rgba(255,255,255,0.3)"
                 }}
                 className="account-dashboard-scroll"
+                onClick={(e) => e.stopPropagation()}
               >
                 <style>{`
                   .account-dashboard-scroll::-webkit-scrollbar {
@@ -1524,7 +1754,9 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                   >
                     {(() => {
                       try {
-                        const user = JSON.parse(localStorage.getItem("user") || "{}");
+                        // Use userData state first, fallback to localStorage
+                        const user = userData || JSON.parse(localStorage.getItem("user") || "{}");
+                        console.log('🎨 Rendering user avatar with data:', user);
                         return (user.username || user.email || "U").charAt(0).toUpperCase();
                       } catch {
                         return "U";
@@ -1535,7 +1767,7 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                     <div style={{ fontWeight: "600", fontSize: "18px", color: "white" }}>
                       {(() => {
                         try {
-                          const user = JSON.parse(localStorage.getItem("user") || "{}");
+                          const user = userData || JSON.parse(localStorage.getItem("user") || "{}");
                           return user.username || "User";
                         } catch {
                           return "User";
@@ -1545,7 +1777,7 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                     <div style={{ fontSize: "14px", color: "rgba(255,255,255,0.8)" }}>
                       {(() => {
                         try {
-                          const user = JSON.parse(localStorage.getItem("user") || "{}");
+                          const user = userData || JSON.parse(localStorage.getItem("user") || "{}");
                           return user.email || "user@example.com";
                         } catch {
                           return "user@example.com";
@@ -1590,7 +1822,9 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                     `}</style>
                     {(() => {
                       try {
-                        const user = JSON.parse(localStorage.getItem("user") || "{}");
+                        // Use userData state (from MongoDB) instead of localStorage
+                        const user = userData || JSON.parse(localStorage.getItem("user") || "{}");
+                        console.log('🎨 Rendering user details with data:', user);
                         return (
                           <div className="row g-2">
                             <div className="col-6">
@@ -1658,7 +1892,13 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                                 <div className="d-flex flex-column py-2">
                                   <span style={{ color: "rgba(255,255,255,0.7)", fontSize: "11px", fontWeight: "500" }}>LAST UPDATED</span>
                                   <span style={{ color: "white", fontWeight: "600" }}>
-                                    {new Date(user.updatedAt).toLocaleString('en-IN')}
+                                    {(() => {
+                                      try {
+                                        return new Date(user.updatedAt).toLocaleString('en-IN');
+                                      } catch {
+                                        return 'Recently';
+                                      }
+                                    })()}
                                   </span>
                                 </div>
                               </div>
@@ -1712,10 +1952,9 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                       <div style={{ fontSize: "20px", fontWeight: "bold" }}>
                         {(() => {
                           try {
-                            const stats = bookingService.getBookingStats();
-                            return `₹${(stats.totalSpent / 1000).toFixed(0)}K`;
+                            return `₹${((bookingStats?.totalSpent || 0) / 1000).toFixed(0)}K`;
                           } catch {
-                            return "₹0";
+                            return "₹0K";
                           }
                         })()}
                       </div>
@@ -1860,6 +2099,38 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                   >
                     ⬇️ Scroll to Bottom
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Loading State - When dropdown is open but userData not loaded */}
+            {showDashboard && !userData && (
+              <div 
+                style={{
+                  position: "absolute",
+                  top: "70px",
+                  right: "0",
+                  background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                  backdropFilter: "blur(15px)",
+                  borderRadius: "20px",
+                  padding: "25px",
+                  boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+                  color: "white",
+                  zIndex: 1000,
+                  width: "300px",
+                  border: "2px solid rgba(255,255,255,0.3)",
+                  textAlign: "center"
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ padding: "20px" }}>
+                  <div style={{ fontSize: "40px", marginBottom: "15px" }}>⏳</div>
+                  <div style={{ fontSize: "16px", fontWeight: "600", marginBottom: "10px" }}>
+                    Loading Profile...
+                  </div>
+                  <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
+                    Fetching your details from database
+                  </div>
                 </div>
               </div>
             )}
@@ -2589,6 +2860,46 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                       </button>
 
                       <button
+                        onClick={() => setActive("CANCELLED")}
+                        style={{
+                          background: active === "CANCELLED" 
+                            ? "linear-gradient(135deg, #dc3545, #ffffff)" 
+                            : "#ffffff",
+                          color: active === "CANCELLED" ? "#000" : "#dc3545",
+                          border: "2px solid #dc3545",
+                          padding: "10px 16px",
+                          borderRadius: "12px",
+                          fontWeight: 600,
+                          fontSize: "13px",
+                          minWidth: "120px",
+                          textAlign: "center",
+                          cursor: "pointer",
+                          backdropFilter: "blur(10px)",
+                          textShadow: "none",
+                          transition: "all 0.3s ease",
+                          boxShadow: active === "CANCELLED" ? "0 4px 15px #dc354560" : "0 2px 8px rgba(0,0,0,0.1)"
+                        }}
+                        onMouseEnter={(e) => {
+                          if (active !== "CANCELLED") {
+                            e.target.style.background = "linear-gradient(135deg, #dc3545, #ffffff)";
+                            e.target.style.color = "#000";
+                            e.target.style.transform = "translateY(-2px)";
+                            e.target.style.boxShadow = "0 6px 20px #dc354550";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (active !== "CANCELLED") {
+                            e.target.style.background = "#ffffff";
+                            e.target.style.color = "#dc3545";
+                            e.target.style.transform = "translateY(0)";
+                            e.target.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+                          }
+                        }}
+                      >
+                        ❌ Cancelled ({cancelledBookings.length})
+                      </button>
+
+                      <button
                         onClick={() => navigate("/booking-dashboard")}
                         style={{
                           background: "#ffffff",
@@ -2775,23 +3086,13 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                           <span className="text-warning">⚠️</span> Cancelled Bookings
                         </h5>
                         <span className="badge bg-warning text-dark">
-                          {(() => {
-                            try {
-                              return bookingService.getCancelledBookings().length;
-                            } catch (error) {
-                              return 0;
-                            }
-                          })()} Cancelled
+                          {cancelledBookings.length} Cancelled
                         </span>
                       </div>
                       
-                      {(() => {
-                        try {
-                          const cancelledBookings = bookingService.getCancelledBookings().slice(0, 5);
-
-                          return cancelledBookings.length > 0 ? (
-                            <div className="row g-3">
-                              {cancelledBookings.map((booking) => (
+                      {cancelledBookings.length > 0 ? (
+                        <div className="row g-3">
+                          {cancelledBookings.slice(0, 5).map((booking) => (
                                 <div key={booking.bookingId} className="col-lg-6">
                                   <div className="border rounded-3 p-3" style={{ backgroundColor: "#fff8f0", borderColor: "#ffc107" }}>
                                     <div className="d-flex justify-content-between align-items-start mb-2">
@@ -2855,17 +3156,8 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                                 All your bookings are active and confirmed
                               </small>
                             </div>
-                          );
-                        } catch (error) {
-                          console.error('Error loading cancelled bookings:', error);
-                          return (
-                            <div className="text-center py-3">
-                              <div className="text-muted">Error loading cancellation data</div>
-                            </div>
-                          );
-                        }
-                      })()}
-                    </div>
+                          )}
+                      </div>
                   </div>
                 </div>
               </div>
@@ -3903,9 +4195,12 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                       );
                     }
 
-                    return userBookings.length > 0 ? (
+                    // Filter out cancelled bookings from My Tickets
+                    const activeBookings = userBookings.filter(booking => booking.status !== 'cancelled');
+                    
+                    return activeBookings.length > 0 ? (
                       <div className="row g-4">
-                        {userBookings.map((booking) => (
+                        {activeBookings.map((booking) => (
                           <div key={booking.bookingId} className="col-lg-6">
                             <div className="bg-white rounded-4 shadow-lg p-4 border border-primary border-opacity-25">
                               {/* Ticket Header */}
@@ -3921,7 +4216,7 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                                 <div className="text-end">
                                   <span className="badge bg-success">Active</span>
                                   <div className="fw-bold text-success mt-1">
-                                    ₹{booking.totalPrice.toLocaleString('en-IN')}
+                                    ₹{(booking.totalPrice || booking.pricing?.totalPrice || 0).toLocaleString('en-IN')}
                                   </div>
                                 </div>
                               </div>
@@ -3958,8 +4253,8 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                                     <div className="fw-semibold">{booking.passengers?.length || 1}</div>
                                   </div>
                                   <div className="col-6">
-                                    <small className="text-muted">Booked:</small>
-                                    <div className="fw-semibold">{new Date(booking.bookingDate).toLocaleDateString()}</div>
+                                    <small className="text-muted">Flight Date:</small>
+                                    <div className="fw-semibold">{new Date(booking.travelDate || booking.flight?.departureDate || booking.bookingDate).toLocaleDateString()}</div>
                                   </div>
                                 </div>
                               </div>
@@ -3974,8 +4269,47 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                                 </div>
                               )}
 
+                              {/* Meal Information */}
+                              {booking.mealBookings && booking.mealBookings.length > 0 && (
+                                <div className="mb-3 p-3 bg-light rounded-3">
+                                  <small className="text-muted fw-bold">🍽️ Meals Ordered:</small>
+                                  <div className="mt-2">
+                                    {booking.mealBookings.map((meal, idx) => (
+                                      <div key={idx} className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                                        <div>
+                                          <div className="fw-semibold">{meal.passengerName}</div>
+                                          <div className="small text-muted">{meal.mealName} ({meal.mealType})</div>
+                                        </div>
+                                        <span className="text-success fw-bold">₹{meal.price}</span>
+                                      </div>
+                                    ))}
+                                    {booking.mealTotalPrice > 0 && (
+                                      <div className="d-flex justify-content-between align-items-center pt-2 mt-1">
+                                        <strong>Total Meal Cost:</strong>
+                                        <strong className="text-success">₹{booking.mealTotalPrice}</strong>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Passenger Meal Preferences (if no detailed meal bookings) */}
+                              {(!booking.mealBookings || booking.mealBookings.length === 0) && booking.passengers && booking.passengers.some(p => p.mealPreference && p.mealPreference !== 'no-preference') && (
+                                <div className="mb-3 p-3 bg-light rounded-3">
+                                  <small className="text-muted fw-bold">🍽️ Meal Preferences:</small>
+                                  <div className="mt-2">
+                                    {booking.passengers.filter(p => p.mealPreference && p.mealPreference !== 'no-preference').map((passenger, idx) => (
+                                      <div key={idx} className="d-flex justify-content-between align-items-center mb-1">
+                                        <span className="fw-semibold">{passenger.firstName} {passenger.lastName}</span>
+                                        <span className="badge bg-info">{passenger.mealPreference}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Action Buttons */}
-                              <div className="d-flex gap-2">
+                              <div className="d-flex gap-2 flex-wrap">
                                 <button 
                                   className="btn btn-outline-primary btn-sm flex-fill"
                                   onClick={() => navigate(`/booking-summary/${booking.bookingId}`)}
@@ -3983,29 +4317,65 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                                   📋 View Details
                                 </button>
                                 <button 
+                                  className="btn btn-success btn-sm flex-fill"
+                                  onClick={() => handleDownloadTicket(booking)}
+                                  title="Download Ticket PDF"
+                                >
+                                  📥 Download
+                                </button>
+                                <button 
+                                  className="btn btn-info btn-sm flex-fill"
+                                  onClick={() => handleResendTicketEmail(booking)}
+                                  title="Send ticket to email"
+                                >
+                                  📧 Email
+                                </button>
+                                <button 
                                   className="btn btn-outline-danger btn-sm flex-fill"
                                   onClick={() => handleCancelTicket(booking)}
                                 >
-                                  ❌ Cancel Ticket
+                                  ❌ Cancel
                                 </button>
                               </div>
 
-                              {/* 10-Day Guarantee Indicator */}
+                              {/* Cancellation Policy Indicator */}
                               {(() => {
-                                const bookingDate = new Date(booking.createdAt || booking.bookingDate);
-                                const now = new Date();
-                                const daysFromBooking = (now.getTime() - bookingDate.getTime()) / (1000 * 60 * 60 * 24);
-                                
-                                if (daysFromBooking <= 10) {
-                                  return (
-                                    <div className="mt-3 p-2 bg-success bg-opacity-10 rounded-2 text-center border border-success border-opacity-25">
-                                      <small className="text-success fw-bold">
-                                        🎯 10-Day Guarantee: Cancel for 100% refund ({Math.ceil(10 - daysFromBooking)} days left)
-                                      </small>
-                                    </div>
-                                  );
+                                try {
+                                  // Use flight date (travelDate) not booking date
+                                  const flightDate = new Date(booking.travelDate || booking.flight?.departureDate || booking.bookingDate);
+                                  const now = new Date();
+                                  const hoursUntilFlight = (flightDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+                                  const daysUntilFlight = Math.ceil(hoursUntilFlight / 24);
+                                  
+                                  // Can cancel if more than 3 days (72 hours) before flight
+                                  if (hoursUntilFlight > 72) {
+                                    return (
+                                      <div className="mt-3 p-2 bg-success bg-opacity-10 rounded-2 text-center border border-success border-opacity-25">
+                                        <small className="text-success fw-bold">
+                                          ✅ Can Cancel: Flight in {daysUntilFlight} days (Free cancellation available)
+                                        </small>
+                                      </div>
+                                    );
+                                  } else if (hoursUntilFlight > 0) {
+                                    return (
+                                      <div className="mt-3 p-2 bg-warning bg-opacity-10 rounded-2 text-center border border-warning border-opacity-25">
+                                        <small className="text-warning fw-bold">
+                                          ⚠️ Cannot Cancel: Flight in {daysUntilFlight} days (Less than 3 days)
+                                        </small>
+                                      </div>
+                                    );
+                                  } else {
+                                    return (
+                                      <div className="mt-3 p-2 bg-danger bg-opacity-10 rounded-2 text-center border border-danger border-opacity-25">
+                                        <small className="text-danger fw-bold">
+                                          ❌ Flight Departed
+                                        </small>
+                                      </div>
+                                    );
+                                  }
+                                } catch (error) {
+                                  return null;
                                 }
-                                return null;
                               })()}
                             </div>
                           </div>
@@ -4015,7 +4385,11 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                       <div className="text-center py-5">
                         <div style={{ fontSize: "64px", marginBottom: "20px" }}>🎫</div>
                         <h4 className="fw-bold mb-3" style={{ color: "#000" }}>No Active Tickets</h4>
-                        <p className="text-muted mb-4">You don't have any active flight tickets yet.</p>
+                        <p className="text-muted mb-4">
+                          {userBookings.length > 0 
+                            ? "All your bookings have been cancelled. Check the Cancelled section."
+                            : "You don't have any active flight tickets yet."}
+                        </p>
                         <button 
                           className="btn btn-primary btn-lg"
                           onClick={() => setActive("SEARCH")}
@@ -4025,10 +4399,200 @@ const Home = ({ isLoggedIn = false, initialActive = "HOME" }) => {
                       </div>
                     );
                   } catch (error) {
-                    console.error('Error loading tickets:', error);
+                    console.error('❌ Error loading tickets:', error);
+                    console.error('Error details:', {
+                      message: error.message,
+                      stack: error.stack,
+                      userBookings: userBookings,
+                      bookingsLoading: bookingsLoading
+                    });
                     return (
                       <div className="text-center py-5">
                         <div className="text-danger mb-3">Error loading tickets</div>
+                        <div className="text-muted small mb-3">
+                          {error.message || 'Unknown error occurred'}
+                        </div>
+                        <button 
+                          className="btn btn-outline-primary"
+                          onClick={() => window.location.reload()}
+                        >
+                          Refresh Page
+                        </button>
+                      </div>
+                    );
+                  }
+                })()}
+              </div>
+            )}
+
+            {/* CANCELLED BOOKINGS SECTION */}
+            {active === "CANCELLED" && (
+              <div className="p-5" style={{ maxWidth: "1600px", margin: "0 auto", paddingLeft: "60px", paddingRight: "60px" }}>
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <h2 className="fw-bold" style={{ color: "#000" }}>❌ Cancelled Tickets</h2>
+                  <button 
+                    className="btn btn-outline-primary"
+                    onClick={() => setActive("HOME")}
+                  >
+                    ← Back to Home
+                  </button>
+                </div>
+
+                {(() => {
+                  try {
+                    if (bookingsLoading) {
+                      return (
+                        <div className="text-center py-5">
+                          <div className="spinner-border text-danger mb-3" />
+                          <h5>Loading cancelled tickets...</h5>
+                        </div>
+                      );
+                    }
+
+                    return cancelledBookings.length > 0 ? (
+                      <div className="row g-4">
+                        {cancelledBookings.map((booking) => (
+                          <div key={booking.bookingId || booking._id} className="col-lg-6">
+                            <div className="bg-white rounded-4 shadow-lg p-4 border border-danger border-opacity-50">
+                              {/* Ticket Header */}
+                              <div className="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                  <h5 className="fw-bold mb-1" style={{ color: "#000" }}>
+                                    {booking.flight.from} → {booking.flight.to}
+                                  </h5>
+                                  <div className="text-muted small">
+                                    Booking ID: {booking.bookingId || booking._id}
+                                  </div>
+                                </div>
+                                <div className="text-end">
+                                  <span className="badge bg-danger">Cancelled</span>
+                                  <div className="fw-bold text-muted mt-1 text-decoration-line-through">
+                                    ₹{(booking.totalPrice || booking.pricing?.totalPrice || 0).toLocaleString('en-IN')}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Flight Details */}
+                              <div className="row g-3 mb-3">
+                                <div className="col-6">
+                                  <div className="text-center p-3 bg-light rounded-3">
+                                    <div className="fw-bold">{booking.flight.departure}</div>
+                                    <div className="small text-muted">Departure</div>
+                                  </div>
+                                </div>
+                                <div className="col-6">
+                                  <div className="text-center p-3 bg-light rounded-3">
+                                    <div className="fw-bold">{booking.flight.arrival}</div>
+                                    <div className="small text-muted">Arrival</div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Cancellation Details */}
+                              <div className="p-3 bg-danger bg-opacity-10 rounded-3 mb-3">
+                                <div className="row g-2">
+                                  <div className="col-12">
+                                    <small className="text-muted">Cancelled On:</small>
+                                    <div className="fw-semibold text-danger">
+                                      {new Date(booking.cancellation?.cancelledAt || booking.cancellationDate).toLocaleString()}
+                                    </div>
+                                  </div>
+                                  {booking.cancellation?.cancellationReason && (
+                                    <div className="col-12">
+                                      <small className="text-muted">Reason:</small>
+                                      <div className="fw-semibold">{booking.cancellation.cancellationReason}</div>
+                                    </div>
+                                  )}
+                                  <div className="col-6">
+                                    <small className="text-muted">Refund Amount:</small>
+                                    <div className="fw-bold text-success">
+                                      ₹{(booking.cancellation?.refundAmount || booking.refundAmount || 0).toLocaleString('en-IN')}
+                                    </div>
+                                  </div>
+                                  <div className="col-6">
+                                    <small className="text-muted">Refund Status:</small>
+                                    <div>
+                                      <span className={`badge ${
+                                        (booking.cancellation?.refundStatus || booking.refundStatus) === 'completed' ? 'bg-success' :
+                                        (booking.cancellation?.refundStatus || booking.refundStatus) === 'processing' ? 'bg-warning' :
+                                        'bg-secondary'
+                                      }`}>
+                                        {(booking.cancellation?.refundStatus || booking.refundStatus || 'pending').toUpperCase()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Original Booking Details */}
+                              <div className="mb-3">
+                                <div className="row g-2">
+                                  <div className="col-6">
+                                    <small className="text-muted">Airline:</small>
+                                    <div className="fw-semibold">{booking.flight.airline}</div>
+                                  </div>
+                                  <div className="col-6">
+                                    <small className="text-muted">Class:</small>
+                                    <div className="fw-semibold">{booking.flight.class}</div>
+                                  </div>
+                                  <div className="col-6">
+                                    <small className="text-muted">Passengers:</small>
+                                    <div className="fw-semibold">{booking.passengers?.length || 1}</div>
+                                  </div>
+                                  <div className="col-6">
+                                    <small className="text-muted">Flight Date:</small>
+                                    <div className="fw-semibold">{new Date(booking.travelDate || booking.flight?.departureDate || booking.bookingDate).toLocaleDateString()}</div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Meal Information (if any) */}
+                              {booking.mealBookings && booking.mealBookings.length > 0 && (
+                                <div className="mb-3 p-3 bg-light rounded-3">
+                                  <small className="text-muted fw-bold">🍽️ Meals (Refunded):</small>
+                                  <div className="mt-2">
+                                    {booking.mealBookings.map((meal, idx) => (
+                                      <div key={idx} className="d-flex justify-content-between align-items-center mb-1">
+                                        <span className="small">{meal.passengerName}: {meal.mealName}</span>
+                                        <span className="small text-muted">₹{meal.price}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* View Details Button */}
+                              <button 
+                                className="btn btn-outline-secondary btn-sm w-100"
+                                onClick={() => {
+                                  // Show booking details in a modal or navigate to details page
+                                  alert(`Booking Details:\n\nBooking ID: ${booking.bookingId || booking._id}\nRoute: ${booking.flight.from} → ${booking.flight.to}\nCancelled: ${new Date(booking.cancellation?.cancelledAt || booking.cancellationDate).toLocaleDateString()}\nRefund: ₹${booking.cancellation?.refundAmount || booking.refundAmount || 0}`);
+                                }}
+                              >
+                                📋 View Full Details
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-5">
+                        <div style={{ fontSize: "64px", marginBottom: "20px" }}>✅</div>
+                        <h4 className="fw-bold mb-3" style={{ color: "#000" }}>No Cancelled Tickets</h4>
+                        <p className="text-muted mb-4">You haven't cancelled any bookings yet.</p>
+                        <button 
+                          className="btn btn-primary btn-lg"
+                          onClick={() => setActive("TICKETS")}
+                        >
+                          View Active Tickets
+                        </button>
+                      </div>
+                    );
+                  } catch (error) {
+                    console.error('Error loading cancelled tickets:', error);
+                    return (
+                      <div className="text-center py-5">
+                        <div className="text-danger mb-3">Error loading cancelled tickets</div>
                         <button 
                           className="btn btn-outline-primary"
                           onClick={() => window.location.reload()}

@@ -1,915 +1,577 @@
-import { useState, useEffect } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
-import bookingService from "../services/bookingService";
-import cancellationService from "../services/cancellationService";
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import bookingService from '../services/bookingService';
 
 const BookingCancellation = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
   const { bookingId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   
-  // Get booking from state (from BookingManagement) or fetch by ID (from BookingConfirmation)
-  const [booking, setBooking] = useState(location.state?.booking || null);
-  const [loading, setLoading] = useState(!location.state?.booking);
+  const [booking, setBooking] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancellationInfo, setCancellationInfo] = useState(null);
+  const [reason, setReason] = useState('');
+  const [customReason, setCustomReason] = useState('');
 
-  const [currentStep, setCurrentStep] = useState(1);
-  const [cancellationData, setCancellationData] = useState({
-    reason: "",
-    customReason: "",
-    refundMethod: "original",
-    confirmTerms: false,
-    emergencyContact: "",
-    additionalNotes: ""
-  });
-  const [refundCalculation, setRefundCalculation] = useState({
-    originalAmount: 0,
-    cancellationFee: 0,
-    refundAmount: 0,
-    processingTime: "5-7 business days"
-  });
-  const [isProcessing, setIsProcessing] = useState(false);
+  // Cancellation reasons
+  const cancellationReasons = [
+    'Change of plans',
+    'Medical emergency',
+    'Flight schedule conflict',
+    'Found better alternative',
+    'Personal reasons',
+    'Other (please specify)'
+  ];
 
+  // Load booking data
   useEffect(() => {
-    if (!booking && bookingId) {
-      // Fetch booking by ID if not provided in state
-      loadBookingById();
-    } else if (booking) {
-      calculateRefund();
-      setLoading(false);
-    } else {
-      toast.error("No booking selected for cancellation");
-      navigate("/my-bookings");
-    }
-  }, [booking, bookingId, navigate]);
+    loadBookingData();
+  }, [bookingId]);
 
-  const loadBookingById = async () => {
+  const loadBookingData = async () => {
     try {
       setLoading(true);
-      console.log('🔍 Loading booking by ID:', bookingId);
+      console.log('🔍 Loading booking for cancellation, ID:', bookingId);
       
-      const bookingDetails = bookingService.getBookingById(bookingId);
-      if (!bookingDetails) {
-        toast.error("Booking not found");
-        navigate("/my-bookings");
+      // Try to get booking from location state first
+      let bookingData = location.state?.booking;
+      
+      // If not in state, fetch from backend
+      if (!bookingData) {
+        console.log('📡 Fetching from backend...');
+        bookingData = await bookingService.getBookingById(bookingId);
+      }
+      
+      if (!bookingData) {
+        toast.error('Booking not found');
+        navigate('/home');
         return;
       }
 
-      console.log('✅ Found booking:', bookingDetails);
-      setBooking(bookingDetails);
-      calculateRefund();
+      // Check if already cancelled
+      if (bookingData.status === 'cancelled') {
+        toast.error('This booking is already cancelled');
+        navigate('/home');
+        return;
+      }
+
+      console.log('✅ Booking loaded:', {
+        id: bookingData.bookingId,
+        from: bookingData.flight?.from,
+        to: bookingData.flight?.to,
+        travelDate: bookingData.travelDate,
+        price: bookingData.totalPrice || bookingData.pricing?.totalPrice
+      });
+
+      setBooking(bookingData);
+      
+      // Calculate cancellation info
+      const info = calculateCancellationInfo(bookingData);
+      console.log('💰 Cancellation info:', info);
+      setCancellationInfo(info);
       
     } catch (error) {
-      console.error("Error loading booking:", error);
-      toast.error("Failed to load booking details");
-      navigate("/my-bookings");
+      console.error('❌ Error loading booking:', error);
+      toast.error('Failed to load booking: ' + error.message);
+      navigate('/home');
     } finally {
       setLoading(false);
     }
   };
 
-  const calculateRefund = () => {
-    if (!booking) return;
-
-    const refundCalculation = cancellationService.calculateRefund(booking);
-    setRefundCalculation(refundCalculation);
-  };
-
-  const handleInputChange = (field, value) => {
-    setCancellationData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const validateStep = (step) => {
-    if (step === 1) {
-      if (!cancellationData.reason) {
-        toast.error("Please select a reason for cancellation");
-        return false;
-      }
-      if (cancellationData.reason === "other" && !cancellationData.customReason.trim()) {
-        toast.error("Please provide a custom reason");
-        return false;
-      }
-    } else if (step === 2) {
-      if (!cancellationData.refundMethod) {
-        toast.error("Please select a refund method");
-        return false;
-      }
-    } else if (step === 3) {
-      if (!cancellationData.confirmTerms) {
-        toast.error("Please accept the terms and conditions");
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const nextStep = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const prevStep = () => {
-    setCurrentStep(currentStep - 1);
-  };
-
-  const processCancellation = async () => {
-    if (!validateStep(3)) return;
-
-    setIsProcessing(true);
-
+  // Calculate cancellation information
+  const calculateCancellationInfo = (bookingData) => {
     try {
-      console.log('🔄 Starting cancellation process for booking:', booking.bookingId);
-      console.log('📋 Booking details:', booking);
-      console.log('📝 Cancellation data:', cancellationData);
-
-      // Use cancellation service to process the cancellation
-      const result = await cancellationService.processCancellation(booking.bookingId, {
-        reason: cancellationData.reason,
-        customReason: cancellationData.customReason,
-        refundMethod: cancellationData.refundMethod,
-        emergencyContact: cancellationData.emergencyContact,
-        additionalNotes: cancellationData.additionalNotes
+      // Get total price
+      const totalPrice = bookingData.totalPrice || bookingData.pricing?.totalPrice || 0;
+      
+      // Get dates
+      const now = new Date();
+      const flightDate = new Date(bookingData.travelDate || bookingData.flight?.departureDate);
+      const bookingCreatedDate = new Date(bookingData.createdAt || bookingData.bookingDate);
+      
+      // Calculate time differences
+      const msUntilFlight = flightDate.getTime() - now.getTime();
+      const hoursUntilFlight = msUntilFlight / (1000 * 60 * 60);
+      const daysUntilFlight = hoursUntilFlight / 24;
+      
+      const msFromBooking = now.getTime() - bookingCreatedDate.getTime();
+      const daysFromBooking = msFromBooking / (1000 * 60 * 60 * 24);
+      
+      console.log('📅 Date calculations:', {
+        now: now.toISOString(),
+        flightDate: flightDate.toISOString(),
+        bookingCreatedDate: bookingCreatedDate.toISOString(),
+        hoursUntilFlight: hoursUntilFlight.toFixed(2),
+        daysUntilFlight: daysUntilFlight.toFixed(2),
+        daysFromBooking: daysFromBooking.toFixed(2)
       });
-
-      console.log('✅ Cancellation service result:', result);
-
-      if (result.success) {
-        toast.success("Booking cancelled successfully!");
-        
-        // Update local refund calculation with actual values
-        setRefundCalculation(prev => ({
-          ...prev,
-          ...result.cancellation.refundCalculation
-        }));
-        
-        // Navigate to confirmation
-        setCurrentStep(4);
-      } else {
-        throw new Error(result.message || 'Cancellation failed');
+      
+      let canCancel = false;
+      let refundPercentage = 0;
+      let policyName = '';
+      let policyDescription = '';
+      let processingTime = '';
+      
+      // 3-DAY MINIMUM POLICY
+      if (hoursUntilFlight <= 72) {
+        // Cannot cancel - less than 3 days before flight
+        canCancel = false;
+        refundPercentage = 0;
+        policyName = 'Cannot Cancel';
+        policyDescription = `Cancellation not allowed. Bookings can only be cancelled at least 3 days (72 hours) before the flight. Your flight is in ${Math.floor(daysUntilFlight)} days and ${Math.floor(hoursUntilFlight % 24)} hours.`;
+        processingTime = 'Not applicable';
       }
+      // 10-DAY GUARANTEE
+      else if (daysFromBooking <= 10) {
+        // Full refund if booked within last 10 days
+        canCancel = true;
+        refundPercentage = 100;
+        policyName = '10-Day Guarantee';
+        policyDescription = 'You booked within the last 10 days, so you qualify for a full 100% refund with no cancellation fee!';
+        processingTime = '1-2 business days';
+      }
+      // 7+ DAYS BEFORE FLIGHT
+      else if (hoursUntilFlight > 168) {
+        // 95% refund, 5% cancellation fee
+        canCancel = true;
+        refundPercentage = 95;
+        policyName = 'Early Cancellation';
+        policyDescription = 'Cancelling 7+ days before flight. You will receive 95% refund with a 5% cancellation fee.';
+        processingTime = '2-3 business days';
+      }
+      // 3-7 DAYS BEFORE FLIGHT
+      else {
+        // 90% refund, 10% cancellation fee
+        canCancel = true;
+        refundPercentage = 90;
+        policyName = 'Standard Cancellation';
+        policyDescription = 'Cancelling 3-7 days before flight. You will receive 90% refund with a 10% cancellation fee.';
+        processingTime = '3-5 business days';
+      }
+      
+      // Calculate amounts
+      const refundAmount = Math.round((totalPrice * refundPercentage) / 100);
+      const cancellationFee = totalPrice - refundAmount;
+      
+      return {
+        canCancel,
+        totalPrice,
+        refundAmount,
+        cancellationFee,
+        refundPercentage,
+        policyName,
+        policyDescription,
+        processingTime,
+        hoursUntilFlight: Math.round(hoursUntilFlight),
+        daysUntilFlight: Math.floor(daysUntilFlight),
+        daysFromBooking: Math.floor(daysFromBooking),
+        flightDate: flightDate.toISOString()
+      };
       
     } catch (error) {
-      console.error("❌ Cancellation error:", error);
-      toast.error(`Failed to process cancellation: ${error.message}`);
+      console.error('❌ Error calculating cancellation info:', error);
+      return {
+        canCancel: false,
+        totalPrice: 0,
+        refundAmount: 0,
+        cancellationFee: 0,
+        refundPercentage: 0,
+        policyName: 'Error',
+        policyDescription: 'Unable to calculate cancellation policy. Please contact support.',
+        processingTime: 'N/A',
+        hoursUntilFlight: 0,
+        daysUntilFlight: 0,
+        daysFromBooking: 0,
+        flightDate: new Date().toISOString()
+      };
+    }
+  };
+
+  // Handle cancellation
+  const handleCancelBooking = async () => {
+    if (!reason) {
+      toast.error('Please select a cancellation reason');
+      return;
+    }
+
+    if (reason === 'Other (please specify)' && !customReason.trim()) {
+      toast.error('Please specify your reason for cancellation');
+      return;
+    }
+
+    if (!cancellationInfo?.canCancel) {
+      toast.error('This booking cannot be cancelled at this time');
+      return;
+    }
+
+    const confirmMessage = `Are you sure you want to cancel this booking?\n\n` +
+      `Flight: ${booking.flight.from} → ${booking.flight.to}\n` +
+      `Departure: ${formatDate(booking.travelDate || booking.flight.departureDate)}\n` +
+      `Refund: ₹${cancellationInfo.refundAmount.toLocaleString()} (${cancellationInfo.refundPercentage}%)\n` +
+      `Cancellation Fee: ₹${cancellationInfo.cancellationFee.toLocaleString()}\n\n` +
+      `Cancellation will be processed immediately.`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setCancelling(true);
       
-      // Show detailed error information
-      console.error("Error details:", {
-        bookingId: booking.bookingId,
-        error: error.message,
-        stack: error.stack
+      // Get user token
+      const user = JSON.parse(localStorage.getItem('user'));
+      const token = user?.token;
+      
+      if (!token) {
+        throw new Error('Authentication required. Please login.');
+      }
+
+      console.log('🔄 Cancelling booking with reason:', reason === 'Other (please specify)' ? customReason : reason);
+
+      // Call backend API to cancel booking
+      const response = await fetch(`http://localhost:5000/api/bookings/${booking._id || bookingId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason: reason === 'Other (please specify)' ? customReason : reason
+        })
       });
-    } finally {
-      setIsProcessing(false);
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to cancel booking');
+      }
+
+      console.log('✅ Cancellation successful:', result);
+      
+      // Update booking status locally to show success
+      setBooking(prev => ({
+        ...prev,
+        status: 'cancelled',
+        cancellation: {
+          isCancelled: true,
+          cancelledAt: new Date().toISOString(),
+          cancellationReason: reason === 'Other (please specify)' ? customReason : reason,
+          refundAmount: cancellationInfo.refundAmount,
+          refundStatus: 'processing'
+        }
+      }));
+
+      toast.success('✅ Booking cancelled successfully! Refund will be processed within ' + cancellationInfo.processingTime);
+      
+      // Navigate to home after 2 seconds
+      setTimeout(() => {
+        navigate('/home', { state: { refresh: true, cancelled: true } });
+      }, 2000);
+      
+    } catch (error) {
+      console.error('❌ Cancellation error:', error);
+      toast.error(error.message || 'Failed to cancel booking. Please contact support.');
+      setCancelling(false);
     }
   };
 
-  const getTimeUntilFlight = () => {
-    if (!booking) return "Unknown";
-    
-    const bookingDate = new Date(booking.bookingDate);
-    const now = new Date();
-    const hoursUntilFlight = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-    
-    if (hoursUntilFlight < 0) return "Flight has departed";
-    if (hoursUntilFlight < 24) return `${Math.round(hoursUntilFlight)} hours`;
-    return `${Math.round(hoursUntilFlight / 24)} days`;
+  // Format date
+  const formatDate = (date) => {
+    try {
+      if (!date) return 'N/A';
+      return new Date(date).toLocaleDateString('en-IN', {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'N/A';
+    }
   };
 
-  const canCancel = () => {
-    if (!booking) return false;
-    
-    // Check if booking is already cancelled
-    if (booking.status === 'cancelled') {
-      return false;
-    }
-    
-    // Check if booking is completed
-    if (booking.status === 'completed') {
-      return false;
-    }
-    
-    // Check if flight has already departed
-    const bookingDate = new Date(booking.bookingDate);
-    const now = new Date();
-    return bookingDate.getTime() > now.getTime();
+  // Format time
+  const formatTime = (time) => {
+    return time || 'N/A';
   };
 
   if (loading) {
     return (
-      <div style={{ background: "#f5e1a8", minHeight: "100vh", padding: "20px 0" }}>
-        <div className="container">
-          <div className="row justify-content-center">
-            <div className="col-lg-8">
-              <div className="bg-white rounded-4 shadow-lg p-5 text-center">
-                <div className="spinner-border text-primary mb-3" />
-                <h4>Loading booking details...</h4>
-                <p className="text-muted">Please wait while we fetch your booking information.</p>
-              </div>
-            </div>
+      <div className="min-vh-100 d-flex justify-content-center align-items-center" 
+           style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+        <div className="text-center text-white">
+          <div className="spinner-border mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+            <span className="visually-hidden">Loading...</span>
           </div>
+          <h4>Loading booking details...</h4>
         </div>
       </div>
     );
   }
 
-  if (!booking) {
+  if (!booking || !cancellationInfo) {
     return (
-      <div style={{ background: "#f5e1a8", minHeight: "100vh", padding: "20px 0" }}>
-        <div className="container">
-          <div className="row justify-content-center">
-            <div className="col-lg-8">
-              <div className="bg-white rounded-4 shadow-lg p-5 text-center">
-                <div className="mb-4" style={{ fontSize: "64px" }}>❌</div>
-                <h2 className="fw-bold mb-3" style={{ color: "#000" }}>
-                  Booking Not Found
-                </h2>
-                <p className="text-muted mb-4">
-                  The booking could not be found or loaded. Please check your booking ID and try again.
-                </p>
-                <button 
-                  className="btn btn-primary"
-                  onClick={() => navigate("/my-bookings")}
-                >
-                  Back to My Bookings
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!booking) {
-    return <div>Loading...</div>;
-  }
-
-  if (!canCancel()) {
-    const getCancellationMessage = () => {
-      if (!booking) return "Booking not found";
-      if (booking.status === 'cancelled') return "This booking has already been cancelled";
-      if (booking.status === 'completed') return "Cannot cancel completed bookings";
-      
-      const bookingDate = new Date(booking.bookingDate);
-      const now = new Date();
-      if (bookingDate.getTime() <= now.getTime()) {
-        return "Cannot cancel - flight has already departed";
-      }
-      
-      return "This booking cannot be cancelled";
-    };
-
-    return (
-      <div style={{ background: "#f5e1a8", minHeight: "100vh", padding: "20px 0" }}>
-        <div className="container">
-          <div className="row justify-content-center">
-            <div className="col-lg-8">
-              <div className="bg-white rounded-4 shadow-lg p-5 text-center">
-                <div className="mb-4" style={{ fontSize: "64px" }}>⚠️</div>
-                <h2 className="fw-bold mb-3" style={{ color: "#000" }}>
-                  Cannot Cancel Booking
-                </h2>
-                <p className="text-muted mb-4">
-                  {getCancellationMessage()}
-                </p>
-                
-                {booking && booking.status === 'cancelled' && (
-                  <div className="bg-danger bg-opacity-10 rounded-3 p-3 mb-4">
-                    <h6 className="fw-bold text-danger mb-2">Cancellation Details</h6>
-                    <div className="small">
-                      <div><strong>Cancelled on:</strong> {new Date(booking.cancellationDate).toLocaleDateString()}</div>
-                      <div><strong>Reason:</strong> {booking.cancellationReason}</div>
-                      <div><strong>Refund Amount:</strong> ₹{booking.refundAmount?.toLocaleString('en-IN') || 'Processing'}</div>
-                      <div><strong>Refund Status:</strong> 
-                        <span className="badge bg-warning ms-2">{booking.refundStatus || 'Processing'}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="d-flex gap-2 justify-content-center">
-                  <button 
-                    className="btn btn-primary"
-                    onClick={() => navigate("/my-bookings")}
-                  >
-                    Back to My Bookings
-                  </button>
-                  
-                  {booking && booking.status !== 'cancelled' && (
-                    <button 
-                      className="btn btn-outline-info"
-                      onClick={() => navigate(`/booking-confirmation/${booking.bookingId}`)}
-                    >
-                      View Confirmation
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+      <div className="min-vh-100 d-flex justify-content-center align-items-center" 
+           style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+        <div className="text-center text-white">
+          <h4>❌ Booking not found</h4>
+          <button className="btn btn-light mt-3" onClick={() => navigate('/home')}>
+            Go to Home
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ background: "#f5e1a8", minHeight: "100vh", padding: "20px 0" }}>
+    <div className="min-vh-100" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', paddingTop: '2rem', paddingBottom: '2rem' }}>
       <div className="container">
-        {/* Header */}
-        <div className="row mb-4">
-          <div className="col-12">
-            <div className="bg-white rounded-4 shadow-lg p-4">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <h2 className="fw-bold mb-1" style={{ color: "#000" }}>
-                    ❌ Cancel Booking
-                  </h2>
-                  <p className="mb-0 text-muted">
-                    Booking ID: {booking.bookingId} | {booking.flight.from} → {booking.flight.to}
-                  </p>
-                </div>
-                <button 
-                  className="btn btn-outline-secondary"
-                  onClick={() => {
-                    // Dispatch event to refresh bookings when going back
-                    window.dispatchEvent(new CustomEvent('bookingUpdated', {
-                      detail: { action: 'refresh' }
-                    }));
-                    navigate("/my-bookings");
-                  }}
-                >
-                  ← Back to Bookings
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Progress Steps */}
-        <div className="row mb-4">
-          <div className="col-12">
-            <div className="bg-white rounded-4 shadow-lg p-4">
-              <div className="d-flex justify-content-center">
-                {[1, 2, 3, 4].map((step) => (
-                  <div key={step} className="d-flex align-items-center">
-                    <div 
-                      className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${
-                        currentStep >= step ? 'bg-danger text-white' : 'bg-light text-muted'
-                      }`}
-                      style={{ width: "40px", height: "40px" }}
-                    >
-                      {step === 4 ? '✓' : step}
-                    </div>
-                    <span className={`mx-3 fw-semibold ${
-                      currentStep >= step ? 'text-danger' : 'text-muted'
-                    }`}>
-                      {step === 1 ? 'Reason' : 
-                       step === 2 ? 'Refund Method' : 
-                       step === 3 ? 'Confirmation' : 'Complete'}
-                    </span>
-                    {step < 4 && (
-                      <div 
-                        className={`mx-3 ${
-                          currentStep > step ? 'bg-danger' : 'bg-light'
-                        }`}
-                        style={{ width: "50px", height: "2px" }}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="row">
+        <div className="row justify-content-center">
           <div className="col-lg-8">
-            <div className="bg-white rounded-4 shadow-lg p-5">
-              
-              {/* Step 1: Cancellation Reason */}
-              {currentStep === 1 && (
-                <div>
-                  <h3 className="fw-bold mb-4" style={{ color: "#000" }}>
-                    📝 Reason for Cancellation
-                  </h3>
+            
+            {/* Header */}
+            <div className="text-center text-white mb-4">
+              <h2 className="mb-2">✈️ Cancel Booking</h2>
+              <p className="mb-0">Review your booking details and cancellation policy</p>
+            </div>
 
-                  {/* Booking Summary */}
-                  <div className="bg-light rounded-3 p-4 mb-4">
-                    <div className="row">
-                      <div className="col-md-3">
-                        <img 
-                          src={booking.flight.image} 
-                          alt={booking.flight.airline}
-                          className="img-fluid rounded-3"
-                          style={{ height: "100px", width: "100%", objectFit: "cover" }}
-                        />
+            {/* Booking Details Card */}
+            <div className="card shadow-lg mb-4">
+              <div className="card-header bg-primary text-white">
+                <h5 className="mb-0">📋 Booking Details</h5>
+              </div>
+              <div className="card-body">
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <p className="mb-1"><strong>Booking ID:</strong></p>
+                    <p className="text-muted mb-0">{booking.bookingId}</p>
+                  </div>
+                  <div className="col-md-6">
+                    <p className="mb-1"><strong>Status:</strong></p>
+                    <span className="badge bg-success">{booking.status}</span>
+                  </div>
+                </div>
+
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <p className="mb-1"><strong>From:</strong></p>
+                    <p className="text-muted mb-0">{booking.flight.from}</p>
+                  </div>
+                  <div className="col-md-6">
+                    <p className="mb-1"><strong>To:</strong></p>
+                    <p className="text-muted mb-0">{booking.flight.to}</p>
+                  </div>
+                </div>
+
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <p className="mb-1"><strong>Flight Date:</strong></p>
+                    <p className="text-muted mb-0">{formatDate(booking.travelDate || booking.flight.departureDate)}</p>
+                  </div>
+                  <div className="col-md-6">
+                    <p className="mb-1"><strong>Time:</strong></p>
+                    <p className="text-muted mb-0">{formatTime(booking.flight.departure)} - {formatTime(booking.flight.arrival)}</p>
+                  </div>
+                </div>
+
+                <div className="row mb-3">
+                  <div className="col-md-6">
+                    <p className="mb-1"><strong>Airline:</strong></p>
+                    <p className="text-muted mb-0">{booking.flight.airline}</p>
+                  </div>
+                  <div className="col-md-6">
+                    <p className="mb-1"><strong>Class:</strong></p>
+                    <p className="text-muted mb-0">{booking.flight.class}</p>
+                  </div>
+                </div>
+
+                <div className="row">
+                  <div className="col-md-6">
+                    <p className="mb-1"><strong>Passengers:</strong></p>
+                    <p className="text-muted mb-0">{booking.passengers?.length || 0} passenger(s)</p>
+                  </div>
+                  <div className="col-md-6">
+                    <p className="mb-1"><strong>Total Paid:</strong></p>
+                    <p className="text-muted fw-bold mb-0">₹{cancellationInfo.totalPrice.toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Cancellation Policy Card */}
+            <div className="card shadow-lg mb-4">
+              <div className={`card-header text-white ${cancellationInfo.canCancel ? 'bg-success' : 'bg-danger'}`}>
+                <h5 className="mb-0">
+                  {cancellationInfo.canCancel ? '✅ Cancellation Available' : '❌ Cancellation Not Available'}
+                </h5>
+              </div>
+              <div className="card-body">
+                {cancellationInfo.canCancel ? (
+                  <>
+                    <div className="alert alert-info mb-3">
+                      <strong>📅 Flight Departure:</strong> {formatDate(cancellationInfo.flightDate)}<br />
+                      <strong>⏰ Time Until Flight:</strong> {cancellationInfo.daysUntilFlight} days, {cancellationInfo.hoursUntilFlight % 24} hours<br />
+                      <strong>📆 Days Since Booking:</strong> {cancellationInfo.daysFromBooking} days
+                    </div>
+
+                    <div className="alert alert-primary">
+                      <h6 className="mb-2"><strong>📋 {cancellationInfo.policyName}</strong></h6>
+                      <p className="mb-0">{cancellationInfo.policyDescription}</p>
+                    </div>
+
+                    <div className="row mb-3">
+                      <div className="col-md-4">
+                        <div className="p-3 bg-light rounded text-center">
+                          <p className="mb-1 text-muted small">Total Paid</p>
+                          <h5 className="mb-0">₹{cancellationInfo.totalPrice.toLocaleString()}</h5>
+                        </div>
                       </div>
-                      <div className="col-md-9">
-                        <h5 className="fw-bold mb-2">{booking.flight.from} → {booking.flight.to}</h5>
-                        <div className="row">
-                          <div className="col-sm-6">
-                            <small className="text-muted">Airline:</small>
-                            <div>{booking.flight.airline}</div>
-                          </div>
-                          <div className="col-sm-6">
-                            <small className="text-muted">Time until flight:</small>
-                            <div className="fw-semibold text-warning">{getTimeUntilFlight()}</div>
-                          </div>
+                      <div className="col-md-4">
+                        <div className="p-3 bg-success bg-opacity-10 rounded text-center">
+                          <p className="mb-1 text-muted small">Refund Amount</p>
+                          <h5 className="mb-0 text-success">₹{cancellationInfo.refundAmount.toLocaleString()}</h5>
+                          <small className="text-muted">({cancellationInfo.refundPercentage}%)</small>
+                        </div>
+                      </div>
+                      <div className="col-md-4">
+                        <div className="p-3 bg-warning bg-opacity-10 rounded text-center">
+                          <p className="mb-1 text-muted small">Cancellation Fee</p>
+                          <h5 className="mb-0 text-warning">₹{cancellationInfo.cancellationFee.toLocaleString()}</h5>
+                          <small className="text-muted">({100 - cancellationInfo.refundPercentage}%)</small>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Reason Selection */}
-                  <div className="mb-4">
-                    <label className="form-label fw-semibold">Select Cancellation Reason *</label>
-                    <div className="row g-3">
-                      {[
-                        { value: "medical_emergency", label: "🏥 Medical Emergency", desc: "Health-related issues" },
-                        { value: "family_emergency", label: "👨‍👩‍👧‍👦 Family Emergency", desc: "Urgent family matters" },
-                        { value: "work_commitment", label: "💼 Work Commitment", desc: "Business obligations" },
-                        { value: "travel_restrictions", label: "🚫 Travel Restrictions", desc: "Government or policy restrictions" },
-                        { value: "change_of_plans", label: "📅 Change of Plans", desc: "Personal schedule changes" },
-                        { value: "weather_concerns", label: "🌦️ Weather Concerns", desc: "Weather-related issues" },
-                        { value: "found_better_deal", label: "💰 Found Better Deal", desc: "Alternative booking" },
-                        { value: "other", label: "📝 Other Reason", desc: "Custom reason" }
-                      ].map((reason) => (
-                        <div key={reason.value} className="col-md-6">
-                          <div 
-                            className={`card h-100 cursor-pointer ${
-                              cancellationData.reason === reason.value ? 'border-danger bg-danger bg-opacity-10' : 'border-light'
-                            }`}
-                            style={{ cursor: "pointer" }}
-                            onClick={() => handleInputChange("reason", reason.value)}
-                          >
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-center">
-                                <input 
-                                  type="radio" 
-                                  name="reason" 
-                                  checked={cancellationData.reason === reason.value}
-                                  onChange={() => handleInputChange("reason", reason.value)}
-                                  className="me-3"
-                                />
-                                <div>
-                                  <div className="fw-semibold">{reason.label}</div>
-                                  <small className="text-muted">{reason.desc}</small>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                    <div className="alert alert-secondary mb-0">
+                      <strong>⏱️ Processing Time:</strong> {cancellationInfo.processingTime}<br />
+                      <strong>💳 Refund Method:</strong> Original payment method
+                    </div>
+                  </>
+                ) : (
+                  <div className="alert alert-danger mb-0">
+                    <h5>❌ Cannot Cancel This Booking</h5>
+                    <p className="mb-2">{cancellationInfo.policyDescription}</p>
+                    <hr />
+                    <p className="mb-0">
+                      <strong>Policy:</strong> Bookings can only be cancelled at least 3 days (72 hours) before the flight departure.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Cancellation Reason (only if can cancel) */}
+            {cancellationInfo.canCancel && booking.status !== 'cancelled' && (
+              <div className="card shadow-lg mb-4">
+                <div className="card-header bg-warning">
+                  <h5 className="mb-0">📝 Cancellation Reason</h5>
+                </div>
+                <div className="card-body">
+                  <div className="mb-3">
+                    <label className="form-label">Please select a reason for cancellation:</label>
+                    <select 
+                      className="form-select" 
+                      value={reason} 
+                      onChange={(e) => setReason(e.target.value)}
+                      disabled={cancelling}
+                    >
+                      <option value="">-- Select Reason --</option>
+                      {cancellationReasons.map((r, index) => (
+                        <option key={index} value={r}>{r}</option>
                       ))}
-                    </div>
+                    </select>
                   </div>
 
-                  {/* Custom Reason */}
-                  {cancellationData.reason === "other" && (
-                    <div className="mb-4">
-                      <label className="form-label fw-semibold">Please specify your reason *</label>
+                  {reason === 'Other (please specify)' && (
+                    <div className="mb-3">
+                      <label className="form-label">Please specify:</label>
                       <textarea 
-                        className="form-control"
-                        rows="4"
-                        placeholder="Please provide detailed reason for cancellation..."
-                        value={cancellationData.customReason}
-                        onChange={(e) => handleInputChange("customReason", e.target.value)}
+                        className="form-control" 
+                        rows="3" 
+                        value={customReason}
+                        onChange={(e) => setCustomReason(e.target.value)}
+                        placeholder="Enter your reason for cancellation..."
+                        disabled={cancelling}
                       />
                     </div>
                   )}
-
-                  {/* Emergency Contact */}
-                  <div className="mb-4">
-                    <label className="form-label fw-semibold">Emergency Contact (Optional)</label>
-                    <input 
-                      type="text"
-                      className="form-control"
-                      placeholder="Emergency contact number or email"
-                      value={cancellationData.emergencyContact}
-                      onChange={(e) => handleInputChange("emergencyContact", e.target.value)}
-                    />
-                  </div>
-
-                  <div className="d-flex justify-content-between">
-                    <button 
-                      className="btn btn-outline-secondary"
-                      onClick={() => navigate("/my-bookings")}
-                    >
-                      Cancel Process
-                    </button>
-                    <button 
-                      className="btn btn-danger"
-                      onClick={nextStep}
-                    >
-                      Continue →
-                    </button>
-                  </div>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Step 2: Refund Method */}
-              {currentStep === 2 && (
-                <div>
-                  <h3 className="fw-bold mb-4" style={{ color: "#000" }}>
-                    💳 Refund Method
-                  </h3>
-
-                  {/* Refund Calculation Display */}
-                  <div className="bg-warning bg-opacity-10 rounded-3 p-4 mb-4">
-                    <h5 className="fw-bold text-warning mb-3">💰 Refund Calculation</h5>
-                    
-                    {/* 10-Day Guarantee Alert */}
-                    {refundCalculation.within10Days && (
-                      <div className="bg-primary bg-opacity-15 rounded-3 p-3 mb-3 border border-primary border-opacity-25">
-                        <div className="d-flex align-items-center">
-                          <span className="fs-4 me-2">🎯</span>
-                          <div>
-                            <h6 className="fw-bold text-primary mb-1">10-Day Cancellation Guarantee!</h6>
-                            <small className="text-primary">
-                              You're within the 10-day window ({refundCalculation.daysFromBooking} days from booking) - 100% refund with fast processing!
-                            </small>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Advance Booking Bonus Alert */}
-                    {refundCalculation.advanceBookingBonus && !refundCalculation.within10Days && (
-                      <div className="bg-success bg-opacity-15 rounded-3 p-3 mb-3">
-                        <div className="d-flex align-items-center">
-                          <span className="fs-4 me-2">🎯</span>
-                          <div>
-                            <h6 className="fw-bold text-success mb-1">Advance Booking Bonus!</h6>
-                            <small className="text-success">
-                              You booked {refundCalculation.daysFromBookingToFlight} days in advance and qualify for a {refundCalculation.bonusPercentage}% bonus refund + faster processing!
-                            </small>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Cannot Cancel Alert */}
-                    {!refundCalculation.canCancel && (
-                      <div className="bg-danger bg-opacity-15 rounded-3 p-3 mb-3 border border-danger border-opacity-25">
-                        <div className="d-flex align-items-center">
-                          <span className="fs-4 me-2">❌</span>
-                          <div>
-                            <h6 className="fw-bold text-danger mb-1">Cancellation Not Available</h6>
-                            <small className="text-danger">
-                              {refundCalculation.cancellationMessage}
-                            </small>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="row">
-                      <div className="col-md-6">
-                        <div className="d-flex justify-content-between mb-2">
-                          <span>Original Amount:</span>
-                          <span className="fw-bold">₹{refundCalculation.originalAmount.toLocaleString('en-IN')}</span>
-                        </div>
-                        {refundCalculation.within10Days && (
-                          <div className="d-flex justify-content-between mb-2">
-                            <span className="text-primary">10-Day Guarantee:</span>
-                            <span className="fw-bold text-primary">100% Refund</span>
-                          </div>
-                        )}
-                        {refundCalculation.advanceBookingBonus && !refundCalculation.within10Days && (
-                          <div className="d-flex justify-content-between mb-2">
-                            <span className="text-success">Advance Booking Bonus:</span>
-                            <span className="fw-bold text-success">+{refundCalculation.bonusPercentage}%</span>
-                          </div>
-                        )}
-                        <div className="d-flex justify-content-between mb-2">
-                          <span>Cancellation Fee:</span>
-                          <span className="fw-bold text-danger">-₹{refundCalculation.cancellationFee.toLocaleString('en-IN')}</span>
-                        </div>
-                        <hr />
-                        <div className="d-flex justify-content-between">
-                          <span className="fw-bold">Refund Amount:</span>
-                          <span className="fw-bold text-success fs-5">₹{refundCalculation.refundAmount.toLocaleString('en-IN')}</span>
-                        </div>
-                        <div className="text-center mt-2">
-                          <small className="text-muted">
-                            {refundCalculation.refundPercentage}% of original amount
-                          </small>
-                        </div>
-                      </div>
-                      <div className="col-md-6">
-                        <div className="text-center">
-                          <div className="fw-bold text-info mb-2">Processing Time</div>
-                          <div className="badge bg-info px-3 py-2">{refundCalculation.processingTime}</div>
-                          
-                          {refundCalculation.policyDescription && (
-                            <div className="mt-3">
-                              <small className="text-muted d-block">Policy:</small>
-                              <small className="fw-semibold">{refundCalculation.policyDescription}</small>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Refund Method Selection */}
-                  <div className="mb-4">
-                    <label className="form-label fw-semibold">Select Refund Method *</label>
-                    <div className="row g-3">
-                      {[
-                        { 
-                          value: "original", 
-                          label: "💳 Original Payment Method", 
-                          desc: "Refund to the card/account used for booking",
-                          time: refundCalculation.processingTime
-                        },
-                        { 
-                          value: "bank_transfer", 
-                          label: "🏦 Bank Transfer", 
-                          desc: "Direct transfer to your bank account",
-                          time: "3-5 business days"
-                        },
-                        { 
-                          value: "wallet", 
-                          label: "📱 Digital Wallet", 
-                          desc: "Credit to your flight booking wallet",
-                          time: "Instant"
-                        },
-                        { 
-                          value: "voucher", 
-                          label: "🎫 Travel Voucher", 
-                          desc: "110% value as future travel credit",
-                          time: "Instant",
-                          bonus: true
-                        }
-                      ].map((method) => (
-                        <div key={method.value} className="col-md-6">
-                          <div 
-                            className={`card h-100 cursor-pointer ${
-                              cancellationData.refundMethod === method.value ? 'border-primary bg-primary bg-opacity-10' : 'border-light'
-                            }`}
-                            style={{ cursor: "pointer" }}
-                            onClick={() => handleInputChange("refundMethod", method.value)}
-                          >
-                            <div className="card-body p-3">
-                              <div className="d-flex align-items-start">
-                                <input 
-                                  type="radio" 
-                                  name="refundMethod" 
-                                  checked={cancellationData.refundMethod === method.value}
-                                  onChange={() => handleInputChange("refundMethod", method.value)}
-                                  className="me-3 mt-1"
-                                />
-                                <div className="flex-grow-1">
-                                  <div className="fw-semibold d-flex align-items-center">
-                                    {method.label}
-                                    {method.bonus && (
-                                      <span className="badge bg-success ms-2" style={{ fontSize: "10px" }}>
-                                        +10% Bonus
-                                      </span>
-                                    )}
-                                  </div>
-                                  <small className="text-muted d-block mb-1">{method.desc}</small>
-                                  <small className="text-info">⏱️ {method.time}</small>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Additional Notes */}
-                  <div className="mb-4">
-                    <label className="form-label fw-semibold">Additional Notes (Optional)</label>
-                    <textarea 
-                      className="form-control"
-                      rows="3"
-                      placeholder="Any additional information or special requests..."
-                      value={cancellationData.additionalNotes}
-                      onChange={(e) => handleInputChange("additionalNotes", e.target.value)}
-                    />
-                  </div>
-
-                  <div className="d-flex justify-content-between">
-                    <button 
-                      className="btn btn-outline-secondary"
-                      onClick={prevStep}
-                    >
-                      ← Back
-                    </button>
-                    <button 
-                      className="btn btn-danger"
-                      onClick={nextStep}
-                    >
-                      Continue →
-                    </button>
-                  </div>
+            {/* Show cancellation success if already cancelled */}
+            {booking.status === 'cancelled' && (
+              <div className="card shadow-lg mb-4">
+                <div className="card-header bg-success text-white">
+                  <h5 className="mb-0">✅ Booking Cancelled Successfully</h5>
                 </div>
-              )}
-
-              {/* Step 3: Final Confirmation */}
-              {currentStep === 3 && (
-                <div>
-                  <h3 className="fw-bold mb-4" style={{ color: "#000" }}>
-                    ✅ Final Confirmation
-                  </h3>
-
-                  {/* Summary */}
-                  <div className="bg-light rounded-3 p-4 mb-4">
-                    <h5 className="fw-bold mb-3">Cancellation Summary</h5>
-                    <div className="row">
-                      <div className="col-md-6">
-                        <div><strong>Booking ID:</strong> {booking.bookingId}</div>
-                        <div><strong>Flight:</strong> {booking.flight.from} → {booking.flight.to}</div>
-                        <div><strong>Airline:</strong> {booking.flight.airline}</div>
-                        <div><strong>Passengers:</strong> {booking.passengers.length}</div>
-                      </div>
-                      <div className="col-md-6">
-                        <div><strong>Reason:</strong> {
-                          cancellationData.reason === 'other' 
-                            ? cancellationData.customReason 
-                            : cancellationData.reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-                        }</div>
-                        <div><strong>Refund Method:</strong> {
-                          cancellationData.refundMethod.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-                        }</div>
-                        <div><strong>Refund Amount:</strong> <span className="text-success fw-bold">₹{refundCalculation.refundAmount.toLocaleString('en-IN')}</span></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Terms and Conditions */}
-                  <div className="bg-danger bg-opacity-10 rounded-3 p-4 mb-4">
-                    <h6 className="fw-bold text-danger mb-3">⚠️ Important Terms & Conditions</h6>
-                    <ul className="small mb-3">
-                      <li>Cancellation is final and cannot be reversed</li>
-                      <li>Refund will be processed according to the selected method</li>
-                      <li>Processing times may vary based on bank/payment provider</li>
-                      <li>Cancellation fees are non-refundable</li>
-                      <li>No-show bookings are not eligible for refunds</li>
-                      <li>Special fare tickets may have different cancellation policies</li>
-                      <li>Travel insurance claims should be filed separately</li>
-                    </ul>
-                    
-                    <div className="form-check">
-                      <input 
-                        className="form-check-input" 
-                        type="checkbox" 
-                        id="confirmTerms"
-                        checked={cancellationData.confirmTerms}
-                        onChange={(e) => handleInputChange("confirmTerms", e.target.checked)}
-                      />
-                      <label className="form-check-label fw-semibold" htmlFor="confirmTerms">
-                        I have read and accept the terms and conditions for cancellation
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="d-flex justify-content-between">
-                    <button 
-                      className="btn btn-outline-secondary"
-                      onClick={prevStep}
-                    >
-                      ← Back
-                    </button>
-                    <button 
-                      className="btn btn-danger btn-lg px-5"
-                      onClick={processCancellation}
-                      disabled={!cancellationData.confirmTerms || isProcessing}
-                    >
-                      {isProcessing ? (
-                        <>
-                          <span className="spinner-border spinner-border-sm me-2" />
-                          Processing...
-                        </>
-                      ) : (
-                        "Confirm Cancellation"
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 4: Completion */}
-              {currentStep === 4 && (
-                <div className="text-center">
-                  <div className="mb-4" style={{ fontSize: "64px" }}>✅</div>
-                  <h3 className="fw-bold mb-3" style={{ color: "#000" }}>
-                    Cancellation Successful
-                  </h3>
-                  <p className="text-muted mb-4">
-                    Your booking has been successfully cancelled. You will receive a confirmation email shortly.
-                  </p>
-
-                  <div className="bg-success bg-opacity-10 rounded-3 p-4 mb-4">
-                    <h5 className="fw-bold text-success mb-3">Refund Details</h5>
-                    <div className="row">
-                      <div className="col-md-6 mx-auto">
-                        <div className="d-flex justify-content-between mb-2">
-                          <span>Refund Amount:</span>
-                          <span className="fw-bold text-success">₹{refundCalculation.refundAmount.toLocaleString('en-IN')}</span>
-                        </div>
-                        <div className="d-flex justify-content-between mb-2">
-                          <span>Processing Time:</span>
-                          <span>{refundCalculation.processingTime}</span>
-                        </div>
-                        <div className="d-flex justify-content-between">
-                          <span>Status:</span>
-                          <span className="badge bg-warning">Processing</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="d-flex gap-3 justify-content-center">
-                    <button 
-                      className="btn btn-outline-primary"
-                      onClick={() => {
-                        const cancellationDetails = {
-                          bookingId: booking.bookingId,
-                          cancellationDate: new Date().toLocaleDateString(),
-                          refundAmount: refundCalculation.refundAmount
-                        };
-                        console.log("Downloading cancellation receipt:", cancellationDetails);
-                        toast.success("Cancellation receipt downloaded!");
-                      }}
-                    >
-                      📄 Download Receipt
-                    </button>
-                    <button 
-                      className="btn btn-primary"
-                      onClick={() => {
-                        // Dispatch event to refresh bookings
-                        window.dispatchEvent(new CustomEvent('bookingUpdated', {
-                          detail: { action: 'refresh' }
-                        }));
-                        navigate("/my-bookings");
-                      }}
-                    >
-                      View My Bookings
-                    </button>
-                    <button 
-                      className="btn btn-success"
-                      onClick={() => navigate("/home")}
-                    >
-                      Book New Flight
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="col-lg-4">
-            <div className="bg-white rounded-4 shadow-lg p-4 sticky-top">
-              <h5 className="fw-bold mb-3" style={{ color: "#000" }}>
-                Cancellation Summary
-              </h5>
-              
-              {booking && (
-                <>
-                  <div className="mb-3">
-                    <img 
-                      src={booking.flight.image} 
-                      alt={booking.flight.airline}
-                      className="img-fluid rounded-3 mb-3"
-                      style={{ height: "120px", width: "100%", objectFit: "cover" }}
-                    />
-                  </div>
-                  
-                  <div className="small mb-4">
-                    <div className="d-flex justify-content-between mb-2">
-                      <span>Original Amount:</span>
-                      <span>₹{refundCalculation.originalAmount.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="d-flex justify-content-between mb-2">
-                      <span>Cancellation Fee:</span>
-                      <span className="text-danger">-₹{refundCalculation.cancellationFee.toLocaleString('en-IN')}</span>
-                    </div>
+                <div className="card-body">
+                  <div className="alert alert-success mb-3">
+                    <h5>✅ Cancellation Complete</h5>
+                    <p className="mb-2">Your booking has been cancelled successfully.</p>
                     <hr />
-                    <div className="d-flex justify-content-between fw-bold">
-                      <span>Refund Amount:</span>
-                      <span className="text-success">₹{refundCalculation.refundAmount.toLocaleString('en-IN')}</span>
-                    </div>
+                    <p className="mb-1"><strong>Refund Amount:</strong> ₹{cancellationInfo.refundAmount.toLocaleString()}</p>
+                    <p className="mb-1"><strong>Refund Status:</strong> Processing</p>
+                    <p className="mb-0"><strong>Processing Time:</strong> {cancellationInfo.processingTime}</p>
                   </div>
+                  <p className="text-muted mb-0">
+                    The refund will be credited to your original payment method within {cancellationInfo.processingTime}.
+                    You will receive a confirmation email shortly.
+                  </p>
+                </div>
+              </div>
+            )}
 
-                  <div className="bg-light rounded-3 p-3">
-                    <h6 className="fw-bold mb-2">Need Help?</h6>
-                    <div className="small">
-                      <div>📞 Customer Support: +91-6301616095</div>
-                      <div>📧 Email: support@akgroup.com</div>
-                      <div>🕒 Available: 24/7</div>
-                    </div>
-                  </div>
-                </>
-              )}
+            {/* Action Buttons */}
+            <div className="card shadow-lg">
+              <div className="card-body">
+                <div className="d-grid gap-2">
+                  {booking.status === 'cancelled' ? (
+                    <button 
+                      className="btn btn-primary btn-lg"
+                      onClick={() => navigate('/home')}
+                    >
+                      ← Back to Home
+                    </button>
+                  ) : cancellationInfo.canCancel ? (
+                    <>
+                      <button 
+                        className="btn btn-danger btn-lg"
+                        onClick={handleCancelBooking}
+                        disabled={cancelling || !reason}
+                      >
+                        {cancelling ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Processing Cancellation...
+                          </>
+                        ) : (
+                          <>❌ Confirm Cancellation</>
+                        )}
+                      </button>
+                      <button 
+                        className="btn btn-secondary btn-lg"
+                        onClick={() => navigate('/home')}
+                        disabled={cancelling}
+                      >
+                        ← Keep Booking
+                      </button>
+                    </>
+                  ) : (
+                    <button 
+                      className="btn btn-primary btn-lg"
+                      onClick={() => navigate('/home')}
+                    >
+                      ← Back to Home
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
+
           </div>
         </div>
       </div>

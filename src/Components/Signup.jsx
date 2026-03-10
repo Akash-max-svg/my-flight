@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import apiService from "../services/api";
+import userAuthService from "../services/userAuthService";
 
 function Signup() {
   const navigate = useNavigate();
@@ -76,8 +76,11 @@ function Signup() {
     setIsLoading(true);
 
     try {
-      // Call backend API
-      const response = await apiService.register({
+      console.log('🔐 Attempting user registration...');
+      console.log('📧 Email:', user.email);
+      
+      // Call user auth service
+      const response = await userAuthService.register({
         username: user.username,
         email: user.email,
         password: user.password,
@@ -88,19 +91,10 @@ function Signup() {
         dob: user.dob,
       });
 
+      console.log('✅ Registration response:', response);
+
       if (response.status === 'success') {
         toast.success("Signup successful!");
-
-        // Store user data and token
-        const loggedInUser = {
-          ...response.data.user,
-          token: response.data.token,
-          refreshToken: response.data.refreshToken,
-          signupTime: new Date().toLocaleString(),
-        };
-
-        localStorage.setItem("user", JSON.stringify(loggedInUser));
-        localStorage.setItem("isLoggedIn", "true");
 
         // Trigger auth change event for App.jsx
         window.dispatchEvent(new Event('authChange'));
@@ -109,9 +103,11 @@ function Signup() {
         setTimeout(() => {
           navigate("/home");
         }, 100);
+      } else {
+        toast.error(response.message || "Signup failed");
       }
     } catch (error) {
-      console.error("Signup error:", error);
+      console.error("❌ Signup error:", error);
       toast.error(error.message || "Signup failed. Please try again.");
     } finally {
       setIsLoading(false);
@@ -311,7 +307,7 @@ function Signup() {
                 marginLeft: "5px",
                 fontWeight: "600",
               }}
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/login")}
             >
               Login
             </span>

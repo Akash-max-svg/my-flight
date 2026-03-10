@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { mealBookingSchema } from './Meal.model.js';
 
 const passengerSchema = new mongoose.Schema({
   firstName: {
@@ -124,6 +125,11 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     maxlength: 500
   },
+  mealBookings: [mealBookingSchema],
+  mealTotalPrice: {
+    type: Number,
+    default: 0
+  },
   bookingDate: {
     type: Date,
     default: Date.now,
@@ -131,8 +137,7 @@ const bookingSchema = new mongoose.Schema({
   },
   travelDate: {
     type: Date,
-    required: true,
-    index: true
+    required: true
   },
   pnr: {
     type: String,
@@ -160,7 +165,7 @@ bookingSchema.index({ user: 1, bookingDate: -1 });
 bookingSchema.index({ 'flight.airline': 1 });
 bookingSchema.index({ 'flight.from': 1, 'flight.to': 1 });
 bookingSchema.index({ status: 1, bookingDate: -1 });
-bookingSchema.index({ travelDate: 1 }, { unique: false });
+bookingSchema.index({ travelDate: 1 });
 
 // Generate unique booking ID before saving
 bookingSchema.pre('save', async function(next) {
@@ -192,7 +197,7 @@ bookingSchema.virtual('daysUntilTravel').get(function() {
   return diffDays;
 });
 
-// Virtual for cancellation eligibility
+// Virtual for cancellation eligibility (3 days before flight)
 bookingSchema.virtual('canCancel').get(function() {
   if (this.status === 'cancelled' || this.status === 'completed') {
     return false;
@@ -202,8 +207,8 @@ bookingSchema.virtual('canCancel').get(function() {
   const travel = new Date(this.travelDate);
   const hoursUntilTravel = (travel - now) / (1000 * 60 * 60);
   
-  // Can cancel if more than 2 hours before travel
-  return hoursUntilTravel > 2;
+  // Can cancel if more than 72 hours (3 days) before travel
+  return hoursUntilTravel > 72;
 });
 
 // Method to calculate refund amount
@@ -238,10 +243,27 @@ bookingSchema.methods.calculateRefund = function() {
   return Math.round((this.pricing.totalPrice * refundPercentage) / 100);
 };
 
-// Method to cancel booking
+// Method to cancel booking (3-day policy)
 bookingSchema.methods.cancelBooking = async function(reason) {
-  if (!this.canCancel) {
-    throw new Error('Booking cannot be cancelled');
+  if (this.status === 'cancelled') {
+    throw new Error('Booking is already cancelled');
+  }
+  
+  if (this.status === 'completed') {
+    throw new Error('Cannot cancel completed booking');
+  }
+  
+  const now = new Date();
+  const travel = new Date(this.travelDate);
+  const hoursUntilTravel = (travel - now) / (1000 * 60 * 60);
+  const daysUntilTravel = Math.floor(hoursUntilTravel / 24);
+  
+  // Check 3-day cancellation policy
+  if (hoursUntilTravel <= 72) {
+    throw new Error(
+      `Cancellation not allowed. Bookings can only be cancelled at least 3 days (72 hours) before the flight. ` +
+      `Your flight is in ${daysUntilTravel} days and ${Math.floor(hoursUntilTravel % 24)} hours.`
+    );
   }
   
   this.status = 'cancelled';

@@ -17,7 +17,38 @@ class CancellationService {
     }
   }
 
-  // Get user cancellations
+  // Get user cancellations from MongoDB via backend API
+  async getUserCancellationsFromDB() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('No token found, returning empty array');
+        return [];
+      }
+
+      const response = await fetch('http://localhost:5000/api/bookings/cancelled/all', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch cancelled bookings');
+      }
+
+      const result = await response.json();
+      console.log('✅ Fetched cancelled bookings from MongoDB:', result.data.count);
+      
+      return result.data.bookings || [];
+    } catch (error) {
+      console.error('❌ Error fetching cancelled bookings from DB:', error);
+      // Fallback to localStorage
+      return this.getUserCancellations();
+    }
+  }
+
+  // Get user cancellations from localStorage (fallback)
   getUserCancellations() {
     try {
       const currentUser = bookingService.getCurrentUser();
@@ -36,14 +67,72 @@ class CancellationService {
     }
   }
 
-  // Calculate refund amount based on cancellation policy
+  // Get cancellation statistics from MongoDB
+  async getCancellationStatsFromDB() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return this.getCancellationStats(); // Fallback to localStorage
+      }
+
+      const response = await fetch('http://localhost:5000/api/bookings/cancelled/stats', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch cancellation stats');
+      }
+
+      const result = await response.json();
+      console.log('📊 Fetched cancellation stats from MongoDB:', result.data);
+      
+      return result.data;
+    } catch (error) {
+      console.error('❌ Error fetching cancellation stats from DB:', error);
+      // Fallback to localStorage
+      return this.getCancellationStats();
+    }
+  }
+
+  // Calculate refund amount based on cancellation policy (3-DAY MINIMUM)
   calculateRefund(booking) {
     try {
-      const totalPrice = booking.totalPrice;
-      const bookingDate = new Date(booking.bookingDate);
-      const flightDate = new Date(booking.flight.departureDate || booking.bookingDate); // Use flight date if available
-      const bookingCreatedDate = new Date(booking.createdAt || booking.bookingDate);
+      // Validate booking data
+      if (!booking) {
+        throw new Error('Booking data is required');
+      }
+
+      const totalPrice = booking.totalPrice || booking.pricing?.totalPrice || 0;
+      
+      if (totalPrice === 0) {
+        console.warn('⚠️ Total price is 0, refund calculation may be inaccurate');
+      }
+
+      // Get dates with fallbacks
+      const bookingDate = new Date(booking.bookingDate || booking.createdAt || Date.now());
+      const flightDate = new Date(
+        booking.travelDate || 
+        booking.flight?.departureDate || 
+        booking.bookingDate || 
+        Date.now()
+      );
+      const bookingCreatedDate = new Date(booking.createdAt || booking.bookingDate || Date.now());
       const now = new Date();
+      
+      // Validate dates
+      if (isNaN(flightDate.getTime())) {
+        console.error('❌ Invalid flight date');
+        throw new Error('Invalid flight date');
+      }
+
+      console.log('📅 Refund calculation dates:', {
+        flightDate: flightDate.toISOString(),
+        bookingCreatedDate: bookingCreatedDate.toISOString(),
+        now: now.toISOString()
+      });
       
       const hoursUntilFlight = (flightDate.getTime() - now.getTime()) / (1000 * 60 * 60);
       const daysFromBookingToFlight = (flightDate.getTime() - bookingCreatedDate.getTime()) / (1000 * 60 * 60 * 24);
@@ -57,50 +146,39 @@ class CancellationService {
       let canCancel = true;
       let cancellationMessage = "";
 
-      // 🎯 NEW: 10-DAY CANCELLATION POLICY
+      // 🚫 NEW: 3-DAY (72-HOUR) MINIMUM CANCELLATION POLICY
+      // Bookings can ONLY be cancelled at least 3 days (72 hours) before flight
+      if (hoursUntilFlight <= 72) {
+        refundPercentage = 0;
+        processingTime = "Not applicable";
+        policyTier = "no-refund";
+        canCancel = false;
+        const daysUntilFlight = Math.floor(hoursUntilFlight / 24);
+        const remainingHours = Math.floor(hoursUntilFlight % 24);
+        cancellationMessage = `❌ Cancellation not allowed. Bookings can only be cancelled at least 3 days (72 hours) before the flight. Your flight is in ${daysUntilFlight} days and ${remainingHours} hours.`;
+      }
+      // 🎯 10-DAY CANCELLATION GUARANTEE (if more than 48 hours before flight)
       // Bookings can be cancelled within 10 days of booking for full refund
-      if (daysFromBooking <= 10) {
+      else if (daysFromBooking <= 10) {
         refundPercentage = 1.0; // 100% refund
         processingTime = "1-2 business days";
         policyTier = "10-day-guarantee";
         cancellationMessage = "✅ 10-Day Cancellation Guarantee - Full refund available!";
       } else {
-        // Standard cancellation policy based on time until flight
+        // Standard cancellation policy based on time until flight (only if > 72 hours)
         if (hoursUntilFlight > 168) { // 7+ days
           refundPercentage = 0.95;
           processingTime = "2-3 business days";
           policyTier = "early-cancellation";
-        } else if (hoursUntilFlight > 72) { // 3-7 days
+        } else { // 3-7 days (72-168 hours)
           refundPercentage = 0.90;
           processingTime = "3-5 business days";
           policyTier = "standard-cancellation";
-        } else if (hoursUntilFlight > 48) { // 2-3 days
-          refundPercentage = 0.85;
-          processingTime = "5-7 business days";
-          policyTier = "late-cancellation";
-        } else if (hoursUntilFlight > 24) { // 1-2 days
-          refundPercentage = 0.75;
-          processingTime = "7-10 business days";
-          policyTier = "very-late-cancellation";
-        } else if (hoursUntilFlight > 12) { // 12-24 hours
-          refundPercentage = 0.60;
-          processingTime = "10-14 business days";
-          policyTier = "last-minute-cancellation";
-        } else if (hoursUntilFlight > 2) { // 2-12 hours
-          refundPercentage = 0.40;
-          processingTime = "14-21 business days";
-          policyTier = "emergency-cancellation";
-        } else { // Less than 2 hours
-          refundPercentage = 0;
-          processingTime = "Not applicable";
-          policyTier = "no-refund";
-          canCancel = false;
-          cancellationMessage = "❌ Cannot cancel - Flight departure is too close";
         }
       }
 
       // 🎯 ADVANCE BOOKING FEATURE - Special benefits for bookings made 1+ week in advance
-      if (daysFromBookingToFlight >= 7 && daysFromBooking > 10) {
+      if (daysFromBookingToFlight >= 7 && daysFromBooking > 10 && canCancel) {
         advanceBookingBonus = true;
         bonusPercentage = 5; // 5% bonus refund for advance bookings
         refundPercentage = Math.min(1.0, refundPercentage + (bonusPercentage / 100));
@@ -134,20 +212,21 @@ class CancellationService {
         flightDate: flightDate.toISOString(),
         
         // Enhanced policy description
-        policyDescription: this.getPolicyDescription(policyTier, advanceBookingBonus, bonusPercentage, daysFromBooking <= 10)
+        policyDescription: this.getPolicyDescription(policyTier, advanceBookingBonus, bonusPercentage, daysFromBooking <= 10, canCancel)
       };
     } catch (error) {
-      console.error('Error calculating refund:', error);
+      console.error('❌ Error calculating refund:', error);
+      console.error('Error details:', error.message, error.stack);
       return {
-        originalAmount: booking.totalPrice || 0,
+        originalAmount: booking?.totalPrice || booking?.pricing?.totalPrice || 0,
         refundAmount: 0,
-        cancellationFee: booking.totalPrice || 0,
+        cancellationFee: booking?.totalPrice || booking?.pricing?.totalPrice || 0,
         refundPercentage: 0,
         processingTime: "Error calculating",
         policyTier: "error",
         hoursUntilFlight: 0,
         canCancel: false,
-        cancellationMessage: "Error calculating cancellation policy",
+        cancellationMessage: "Error calculating cancellation policy: " + error.message,
         daysFromBooking: 0,
         within10Days: false,
         advanceBookingBonus: false,
@@ -159,7 +238,12 @@ class CancellationService {
   }
 
   // Get policy description based on tier and advance booking status
-  getPolicyDescription(policyTier, advanceBookingBonus, bonusPercentage, within10Days = false) {
+  getPolicyDescription(policyTier, advanceBookingBonus, bonusPercentage, within10Days = false, canCancel = true) {
+    // Cannot cancel takes priority
+    if (!canCancel) {
+      return "🚫 Cancellation not allowed - Must be at least 2 days (48 hours) before flight";
+    }
+
     // 10-day guarantee takes priority
     if (within10Days) {
       return "🎯 10-Day Cancellation Guarantee - Full refund with fast processing";
@@ -168,11 +252,8 @@ class CancellationService {
     const baseDescriptions = {
       "early-cancellation": "Early cancellation with minimal fees",
       "standard-cancellation": "Standard cancellation policy applies",
-      "late-cancellation": "Late cancellation with moderate fees",
-      "very-late-cancellation": "Very late cancellation with higher fees",
-      "last-minute-cancellation": "Last-minute cancellation with significant fees",
-      "emergency-cancellation": "Emergency cancellation with maximum fees",
-      "no-refund": "No refund available for this timing"
+      "late-cancellation": "Late cancellation (2-3 days before flight)",
+      "no-refund": "No refund available - Less than 2 days before flight"
     };
 
     let description = baseDescriptions[policyTier.replace('advance-', '')] || "Standard policy";
@@ -184,89 +265,73 @@ class CancellationService {
     return description;
   }
 
-  // Process booking cancellation
+  // Process booking cancellation - SAVES TO MONGODB VIA BACKEND API
   async processCancellation(bookingId, cancellationData) {
     try {
       console.log('🔄 Processing cancellation for booking:', bookingId);
+      console.log('📝 Cancellation data:', cancellationData);
       
-      // Get the booking
-      const booking = bookingService.getBookingById(bookingId);
-      if (!booking) {
-        throw new Error('Booking not found');
+      // Get authentication token
+      const token = localStorage.getItem('token');
+      console.log('🔑 Token found:', token ? 'Yes' : 'No');
+      
+      if (!token) {
+        throw new Error('Authentication required. Please login.');
       }
 
-      console.log('📋 Found booking:', booking);
+      const apiUrl = `http://localhost:5000/api/bookings/${bookingId}/cancel`;
+      console.log('📡 Calling API:', apiUrl);
 
-      // Check if booking can be cancelled
-      if (booking.status === 'cancelled') {
-        throw new Error('Booking is already cancelled');
+      // Call backend API to cancel booking (saves to MongoDB)
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason: cancellationData.customReason || cancellationData.reason,
+          refundMethod: cancellationData.refundMethod,
+          emergencyContact: cancellationData.emergencyContact,
+          additionalNotes: cancellationData.additionalNotes
+        })
+      });
+
+      console.log('📨 Response status:', response.status);
+      console.log('📨 Response ok:', response.ok);
+
+      const result = await response.json();
+      console.log('📨 Response data:', result);
+
+      if (!response.ok) {
+        console.error('❌ API Error:', result.message);
+        throw new Error(result.message || 'Failed to cancel booking');
       }
 
-      if (booking.status === 'completed') {
-        throw new Error('Cannot cancel completed booking');
-      }
+      console.log('✅ Cancellation saved to MongoDB:', result);
 
-      // Calculate refund
-      const refundCalculation = this.calculateRefund(booking);
-      console.log('💰 Refund calculation:', refundCalculation);
-
-      // Create cancellation record
+      // Also save to localStorage for offline access (optional)
       const cancellationRecord = {
         cancellationId: `CXL${Date.now()}${Math.floor(Math.random() * 1000)}`,
-        bookingId: booking.bookingId,
-        userId: booking.userId,
+        bookingId: bookingId,
         cancellationDate: new Date().toISOString(),
         cancellationReason: cancellationData.reason,
         customReason: cancellationData.customReason,
         refundMethod: cancellationData.refundMethod,
         emergencyContact: cancellationData.emergencyContact,
         additionalNotes: cancellationData.additionalNotes,
-        
-        // Booking details for reference
-        flight: booking.flight,
-        passengers: booking.passengers,
-        seats: booking.seats,
-        originalBookingDate: booking.bookingDate,
-        
-        // Refund details
-        refundCalculation,
-        refundStatus: 'processing',
-        refundProcessedDate: null,
-        
-        // Metadata
-        cancellationTimestamp: new Date().toISOString(),
-        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown',
-        ipAddress: 'Not tracked', // In real app, would get from server
-        
-        // Status tracking
+        refundAmount: result.data.refundAmount,
+        refundStatus: result.data.refundStatus,
         status: 'processed',
-        confirmationSent: false,
-        refundInitiated: false
+        source: 'mongodb' // Indicates this came from backend
       };
 
-      console.log('📝 Created cancellation record:', cancellationRecord);
-
-      // Update booking status using booking service
-      const updatedBooking = bookingService.updateBookingStatus(bookingId, 'cancelled', {
-        cancellationDate: cancellationRecord.cancellationDate,
-        cancellationReason: cancellationData.reason,
-        refundAmount: refundCalculation.refundAmount,
-        refundStatus: 'processing',
-        cancellationId: cancellationRecord.cancellationId
-      });
-
-      console.log('✅ Updated booking status:', updatedBooking);
-
-      // Save cancellation record
+      // Save to localStorage as backup
       const allCancellations = this.getAllCancellations();
       allCancellations.push(cancellationRecord);
       localStorage.setItem(this.cancellationStorageKey, JSON.stringify(allCancellations));
       
-      console.log('💾 Saved cancellation to localStorage. Total cancellations:', allCancellations.length);
-
-      // Create refund record
-      const refundRecord = this.createRefundRecord(cancellationRecord);
-      console.log('💳 Created refund record:', refundRecord);
+      console.log('💾 Cancellation also saved to localStorage as backup');
 
       // Dispatch custom event to notify components about booking update
       if (typeof window !== 'undefined') {
@@ -278,13 +343,16 @@ class CancellationService {
       return {
         success: true,
         cancellation: cancellationRecord,
-        booking: updatedBooking,
-        refund: refundRecord,
-        message: 'Cancellation processed successfully'
+        booking: result.data.booking,
+        refundAmount: result.data.refundAmount,
+        refundStatus: result.data.refundStatus,
+        message: result.message || 'Cancellation processed successfully and saved to database'
       };
 
     } catch (error) {
       console.error('❌ Error processing cancellation:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
       throw error;
     }
   }

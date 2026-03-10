@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import bookingService from "../services/bookingService";
-import cancellationService from "../services/cancellationService";
 
 const BookingDashboard = () => {
   const navigate = useNavigate();
@@ -17,31 +16,82 @@ const BookingDashboard = () => {
     try {
       setLoading(true);
       
-      // Load booking statistics
-      const bookings = bookingService.getBookingStats();
+      console.log('📊 Loading dashboard data from MongoDB...');
+      
+      // Load booking statistics from MongoDB
+      const bookings = await bookingService.getBookingStats();
+      console.log('✅ Booking stats loaded:', bookings);
       setBookingStats(bookings);
       
-      // Load cancellation statistics
-      const cancellations = cancellationService.getCancellationStats();
-      setCancellationStats(cancellations);
+      // Load cancellation statistics from bookings
+      const cancelledBookings = await bookingService.getCancelledBookings();
+      console.log('✅ Cancelled bookings loaded:', cancelledBookings.length);
+      
+      // Calculate cancellation stats
+      const cancellationStats = {
+        totalCancellations: cancelledBookings.length,
+        pendingRefunds: cancelledBookings.filter(b => 
+          b.cancellation?.refundStatus === 'processing' || b.refundStatus === 'processing'
+        ).length,
+        completedRefunds: cancelledBookings.filter(b => 
+          b.cancellation?.refundStatus === 'completed' || b.refundStatus === 'completed'
+        ).length,
+        totalRefundAmount: cancelledBookings.reduce((sum, b) => 
+          sum + (b.cancellation?.refundAmount || b.refundAmount || 0), 0
+        ),
+        recentCancellations: cancelledBookings
+          .sort((a, b) => new Date(b.cancellation?.cancelledAt || b.cancellationDate) - 
+                         new Date(a.cancellation?.cancelledAt || a.cancellationDate))
+          .slice(0, 5)
+          .map(b => ({
+            cancellationId: b.bookingId || b._id,
+            flight: b.flight,
+            cancellationDate: b.cancellation?.cancelledAt || b.cancellationDate,
+            refundCalculation: {
+              refundAmount: b.cancellation?.refundAmount || b.refundAmount || 0,
+              refundPercentage: b.cancellation?.refundAmount && (b.totalPrice || b.pricing?.totalPrice)
+                ? Math.round((b.cancellation.refundAmount / (b.totalPrice || b.pricing.totalPrice)) * 100)
+                : 0,
+              within10Days: (() => {
+                const bookingDate = new Date(b.bookingDate || b.createdAt);
+                const cancelDate = new Date(b.cancellation?.cancelledAt || b.cancellationDate);
+                const daysDiff = (cancelDate - bookingDate) / (1000 * 60 * 60 * 24);
+                return daysDiff <= 10;
+              })()
+            },
+            refundStatus: b.cancellation?.refundStatus || b.refundStatus || 'processing'
+          })),
+        reasonBreakdown: cancelledBookings.reduce((acc, b) => {
+          const reason = b.cancellation?.cancellationReason || b.cancellationReason || 'not_specified';
+          acc[reason] = (acc[reason] || 0) + 1;
+          return acc;
+        }, {})
+      };
+      
+      console.log('✅ Cancellation stats calculated:', cancellationStats);
+      setCancellationStats(cancellationStats);
       
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      console.error('❌ Error loading dashboard data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleExportData = () => {
+  const handleExportData = async () => {
     try {
-      // Export both booking and cancellation data
-      const bookingData = bookingService.exportBookings();
-      const cancellationData = cancellationService.exportCancellationData();
+      console.log('📥 Exporting dashboard data...');
+      
+      // Export booking data
+      const bookingData = await bookingService.exportBookings();
       
       const combinedData = {
         exportDate: new Date().toISOString(),
         bookings: JSON.parse(bookingData),
-        cancellations: JSON.parse(cancellationData)
+        statistics: {
+          bookingStats,
+          cancellationStats
+        }
       };
 
       // Create downloadable file
@@ -60,8 +110,10 @@ const BookingDashboard = () => {
       // Clean up
       URL.revokeObjectURL(url);
       
+      console.log('✅ Data exported successfully');
+      
     } catch (error) {
-      console.error('Error exporting data:', error);
+      console.error('❌ Error exporting data:', error);
     }
   };
 
@@ -239,19 +291,19 @@ const BookingDashboard = () => {
               {bookingStats?.recentBookings?.length > 0 ? (
                 <div>
                   {bookingStats.recentBookings.slice(0, 3).map((booking, index) => (
-                    <div key={booking.bookingId} className="border-bottom py-2">
+                    <div key={booking.bookingId || booking._id} className="border-bottom py-2">
                       <div className="d-flex justify-content-between align-items-center">
                         <div>
                           <div className="fw-semibold" style={{ fontSize: "14px" }}>
                             {booking.flight.from} → {booking.flight.to}
                           </div>
                           <div className="text-muted small">
-                            {booking.flight.airline} • {new Date(booking.bookingDate).toLocaleDateString()}
+                            {booking.flight.airline} • {new Date(booking.bookingDate || booking.createdAt).toLocaleDateString()}
                           </div>
                         </div>
                         <div className="text-end">
                           <div className="fw-bold text-success" style={{ fontSize: "14px" }}>
-                            ₹{booking.totalPrice.toLocaleString('en-IN')}
+                            ₹{(booking.totalPrice || booking.pricing?.totalPrice || 0).toLocaleString('en-IN')}
                           </div>
                           <span className={`badge ${
                             booking.status === 'cancelled' ? 'bg-danger' : 'bg-success'

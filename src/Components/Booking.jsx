@@ -6,6 +6,7 @@ import bookingService from "../services/bookingService";
 import discountService from "../services/discountService";
 import SeatSelection from "./SeatSelection.jsx";
 import DiscountModal from "./DiscountModal.jsx";
+import MealSelection from "./MealSelection.jsx";
 
 const Booking = () => {
   const location = useLocation();
@@ -16,6 +17,10 @@ const Booking = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [seatSelectionData, setSeatSelectionData] = useState(null);
   const [totalSeatPrice, setTotalSeatPrice] = useState(0);
+  
+  // Meal selection state
+  const [mealSelections, setMealSelections] = useState({});
+  const [totalMealPrice, setTotalMealPrice] = useState(0);
 
   // Discount-related state
   const [appliedDiscount, setAppliedDiscount] = useState(null);
@@ -94,7 +99,7 @@ const Booking = () => {
     setTotalSeatPrice(0); // Remove seat pricing
     setSelectedSeats(seatSelections.map(s => s.seatNumber));
     toast.success(`${seatSelections.length} seats selected successfully!`);
-    setCurrentStep(3); // Move to payment step
+    setCurrentStep(4); // Move to payment step
   };
 
   // Handle skipping seat selection
@@ -103,7 +108,29 @@ const Booking = () => {
     setTotalSeatPrice(0);
     setSelectedSeats([]);
     toast.info("Seat selection skipped. Random seats will be assigned.");
-    setCurrentStep(3); // Move to payment step
+    setCurrentStep(4); // Move to payment step
+  };
+  
+  // Handle meal selection
+  const handleMealSelection = (passengerIndex, mealData) => {
+    setMealSelections(prev => ({
+      ...prev,
+      [passengerIndex]: mealData
+    }));
+    
+    // Calculate total meal price
+    const newTotal = Object.values({
+      ...mealSelections,
+      [passengerIndex]: mealData
+    }).reduce((sum, meal) => {
+      if (!meal) return sum;
+      let mealTotal = meal.price || 0;
+      if (meal.beverage) mealTotal += meal.beverage.price;
+      if (meal.snack) mealTotal += meal.snack.price;
+      return sum + mealTotal;
+    }, 0);
+    
+    setTotalMealPrice(newTotal);
   };
 
   const handlePassengerChange = (index, field, value) => {
@@ -153,7 +180,7 @@ const Booking = () => {
 
   const calculateTotalPrice = () => {
     const basePrice = parseInt(flight?.price?.replace(/[₹,]/g, '') || '0');
-    const subtotal = basePrice; // Remove seat price from calculation
+    const subtotal = basePrice + totalMealPrice; // Add meal price to calculation
     
     // Check for automatic high-value discount
     if (!appliedDiscount) {
@@ -174,7 +201,7 @@ const Booking = () => {
 
   const calculateSubtotal = () => {
     const basePrice = parseInt(flight?.price?.replace(/[₹,]/g, '') || '0');
-    return basePrice; // Remove seat price from subtotal
+    return basePrice + totalMealPrice; // Add meal price to subtotal
   };
 
   const handleDiscountApplied = (discountResult) => {
@@ -194,6 +221,8 @@ const Booking = () => {
         flight,
         passengers: data.passengers,
         seats: seatSelectionData || [],
+        meals: mealSelections,
+        totalMealPrice: totalMealPrice,
         totalPrice: calculateTotalPrice(),
         subtotal: calculateSubtotal(),
         discountApplied: appliedDiscount,
@@ -261,7 +290,7 @@ const Booking = () => {
           <div className="col-12">
             <div className="bg-white rounded-4 shadow-lg p-4">
               <div className="d-flex justify-content-center">
-                {[1, 2, 3].map((step) => (
+                {[1, 2, 3, 4].map((step) => (
                   <div key={step} className="d-flex align-items-center">
                     <div 
                       className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${
@@ -274,9 +303,9 @@ const Booking = () => {
                     <span className={`mx-3 fw-semibold ${
                       currentStep >= step ? 'text-primary' : 'text-muted'
                     }`}>
-                      {step === 1 ? 'Passenger Details' : step === 2 ? 'Seat Selection' : 'Payment'}
+                      {step === 1 ? 'Passenger Details' : step === 2 ? 'Meal Selection' : step === 3 ? 'Seat Selection' : 'Payment'}
                     </span>
-                    {step < 3 && (
+                    {step < 4 && (
                       <div 
                         className={`mx-3 ${
                           currentStep > step ? 'bg-primary' : 'bg-light'
@@ -477,7 +506,7 @@ const Booking = () => {
                     className="btn btn-primary btn-lg px-5"
                     onClick={nextStep}
                   >
-                    Continue to Seat Selection →
+                    Continue to Meal Selection →
                   </button>
                 </div>
               </div>
@@ -485,8 +514,70 @@ const Booking = () => {
           </div>
         )}
 
-        {/* Step 2: Seat Selection */}
+        {/* Step 2: Meal Selection */}
         {currentStep === 2 && (
+          <div className="row">
+            <div className="col-12">
+              <div className="bg-white rounded-4 shadow-lg p-5">
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <h3 className="fw-bold mb-0" style={{ color: "#000" }}>
+                    🍽️ Meal Selection
+                  </h3>
+                  {totalMealPrice > 0 && (
+                    <div className="badge bg-success fs-5 px-4 py-2">
+                      Total Meal Price: ₹{totalMealPrice.toLocaleString('en-IN')}
+                    </div>
+                  )}
+                </div>
+                
+                <p className="text-muted mb-4">
+                  Select meals for your passengers. You can skip this step if you don't want to pre-order meals.
+                </p>
+                
+                {(watchedPassengers || []).map((passenger, index) => (
+                  <MealSelection
+                    key={index}
+                    passengerIndex={index}
+                    passengerName={`${passenger.firstName} ${passenger.lastName}`}
+                    onMealSelect={handleMealSelection}
+                    selectedMeal={mealSelections[index]}
+                  />
+                ))}
+                
+                <div className="d-flex justify-content-between mt-4">
+                  <button 
+                    className="btn btn-outline-secondary btn-lg"
+                    onClick={prevStep}
+                  >
+                    ← Back to Passenger Details
+                  </button>
+                  <div className="d-flex gap-2">
+                    <button 
+                      className="btn btn-outline-primary btn-lg"
+                      onClick={() => {
+                        setMealSelections({});
+                        setTotalMealPrice(0);
+                        toast.info("Meal selection skipped");
+                        nextStep();
+                      }}
+                    >
+                      Skip Meal Selection
+                    </button>
+                    <button 
+                      className="btn btn-primary btn-lg px-5"
+                      onClick={nextStep}
+                    >
+                      Continue to Seat Selection →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Seat Selection */}
+        {currentStep === 3 && (
           <SeatSelection
             flight={flight}
             passengers={watchedPassengers || []}
@@ -495,8 +586,8 @@ const Booking = () => {
           />
         )}
 
-        {/* Step 3: Payment */}
-        {currentStep === 3 && (
+        {/* Step 4: Payment */}
+        {currentStep === 4 && (
           <div className="row">
             <div className="col-lg-8">
               <div className="bg-white rounded-4 shadow-lg p-5">
@@ -650,7 +741,13 @@ const Booking = () => {
                     <div className="col-md-6">
                       <p><strong>Flight:</strong> {flight.from} → {flight.to}</p>
                       <p><strong>Airline:</strong> {flight.airline}</p>
-                      <p><strong>Date:</strong> {flight.departure} - {flight.arrival}</p>
+                      <p><strong>Departure Date:</strong> {flight.departureDate ? new Date(flight.departureDate).toLocaleDateString('en-IN', { 
+                        weekday: 'short',
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      }) : 'N/A'}</p>
+                      <p><strong>Time:</strong> {flight.departure} - {flight.arrival}</p>
                       <p><strong>Class:</strong> {flight.class}</p>
                     </div>
                     <div className="col-md-6">
@@ -660,9 +757,30 @@ const Booking = () => {
                           ? seatSelectionData.map(s => s.seatNumber).join(', ')
                           : 'Random assignment'
                       }</p>
+                      {totalMealPrice > 0 && (
+                        <p><strong>Meals:</strong> {Object.keys(mealSelections).length} meal(s) selected (₹{totalMealPrice.toLocaleString('en-IN')})</p>
+                      )}
                       <p><strong>Total Amount:</strong> <span className="text-success fw-bold">₹{calculateTotalPrice().toLocaleString('en-IN')}</span></p>
                     </div>
                   </div>
+                  
+                  {/* Meal Details */}
+                  {Object.keys(mealSelections).length > 0 && (
+                    <div className="mt-3 pt-3 border-top">
+                      <h6 className="fw-bold mb-2">Meal Details:</h6>
+                      {Object.entries(mealSelections).map(([index, meal]) => {
+                        if (!meal) return null;
+                        const passenger = watchedPassengers[index];
+                        return (
+                          <div key={index} className="small mb-2">
+                            <strong>{passenger.firstName} {passenger.lastName}:</strong> {meal.name}
+                            {meal.beverage && ` + ${meal.beverage.name}`}
+                            {meal.snack && ` + ${meal.snack.name}`}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="d-flex justify-content-between">
@@ -726,6 +844,12 @@ const Booking = () => {
                     <span>Base Fare:</span>
                     <span>{flight.price}</span>
                   </div>
+                  {totalMealPrice > 0 && (
+                    <div className="d-flex justify-content-between mb-2">
+                      <span>Meals:</span>
+                      <span>₹{totalMealPrice.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
                   <div className="d-flex justify-content-between mb-2">
                     <span>Taxes & Fees:</span>
                     <span>Included</span>

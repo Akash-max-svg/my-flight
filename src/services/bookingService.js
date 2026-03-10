@@ -32,7 +32,7 @@ class BookingService {
         // Use backend API
         const response = await apiService.createBooking({
           flight: {
-            flightId: bookingData.flight.id || bookingData.flight.flightId,
+            flightId: bookingData.flight.id || bookingData.flight.flightId || `FL${Date.now()}`,
             airline: bookingData.flight.airline,
             from: bookingData.flight.from,
             to: bookingData.flight.to,
@@ -41,36 +41,34 @@ class BookingService {
             departureDate: new Date(bookingData.flight.departureDate || Date.now()),
             aircraft: bookingData.flight.aircraft,
             class: bookingData.flight.class,
-            duration: bookingData.flight.duration,
+            duration: bookingData.flight.time || bookingData.flight.duration,
             price: bookingData.flight.price
           },
-          passengers: bookingData.passengers.map(p => ({
+          passengers: bookingData.passengers.map((p, index) => ({
             firstName: p.firstName || p.name?.split(' ')[0] || '',
             lastName: p.lastName || p.name?.split(' ').slice(1).join(' ') || '',
-            age: parseInt(p.age),
-            gender: p.gender,
+            age: parseInt(p.age) || parseInt(p.dateOfBirth ? new Date().getFullYear() - new Date(p.dateOfBirth).getFullYear() : 25),
+            gender: p.gender || 'other',
             nationality: p.nationality || currentUser.country || 'India',
             passportNumber: p.passportNumber || '',
-            seatNumber: p.seatNumber || '',
+            seatNumber: bookingData.seats?.[index]?.seatNumber || p.seatNumber || '',
             mealPreference: p.mealPreference || 'no-preference'
           })),
-          seats: bookingData.seats || [],
+          seats: (bookingData.seats || []).map(seat => ({
+            seatNumber: seat.seatNumber,
+            passengerIndex: seat.passengerIndex || 0,
+            class: seat.class || bookingData.flight.class
+          })),
           contactDetails: {
-            email: bookingData.contactEmail || currentUser.email,
-            phone: bookingData.contactPhone || currentUser.mobile
+            email: bookingData.passengers?.[0]?.email || bookingData.contactEmail || currentUser.email,
+            phone: (bookingData.passengers?.[0]?.phone || bookingData.contactPhone || currentUser.mobile || '').replace(/\D/g, '').slice(0, 10)
           },
           pricing: {
             basePrice: parseInt(bookingData.flight.price.replace(/[₹,]/g, '')),
-            taxes: 0,
-            fees: 0,
-            discount: 0,
+            taxes: Math.round(parseInt(bookingData.flight.price.replace(/[₹,]/g, '')) * 0.05),
+            fees: 500,
+            discount: bookingData.discountAmount || 0,
             totalPrice: bookingData.totalPrice
-          },
-          payment: {
-            method: bookingData.paymentMethod || 'credit-card',
-            status: 'completed',
-            transactionId: `TXN${Date.now()}`,
-            paidAt: new Date()
           },
           travelDate: new Date(bookingData.flight.departureDate || Date.now()),
           specialRequests: bookingData.specialRequests || ''
@@ -120,13 +118,17 @@ class BookingService {
   }
 
   // Get all bookings
-  async getAllBookings() {
+  async getAllBookings(forceRefresh = false) {
     try {
       const currentUser = this.getCurrentUser();
       
       if (this.useBackend && currentUser?.token) {
         const response = await apiService.getBookings();
         if (response.status === 'success') {
+          // Also update localStorage with fresh data from backend
+          if (forceRefresh) {
+            localStorage.setItem(this.storageKey, JSON.stringify(response.data.bookings));
+          }
           return response.data.bookings;
         }
       }
@@ -151,28 +153,51 @@ class BookingService {
   // Get bookings for current user (active bookings only)
   async getUserBookings(includeAll = false) {
     try {
+      console.log('📞 bookingService.getUserBookings() called, includeAll:', includeAll);
+      
       const allBookings = await this.getAllBookings();
+      console.log('📦 getAllBookings() returned:', allBookings.length, 'bookings');
+      
       const currentUser = this.getCurrentUser();
+      console.log('👤 Current user for filtering:', {
+        email: currentUser?.email,
+        _id: currentUser?._id
+      });
       
       if (!currentUser) {
+        console.warn('⚠️ No current user found, returning empty array');
         return [];
       }
 
-      const userBookings = allBookings.filter(booking => 
-        booking.userId === currentUser.email ||
-        booking.user?._id === currentUser._id ||
-        booking.passengers?.some(passenger => 
-          passenger.email === currentUser.email
-        )
-      );
+      // Filter bookings for current user
+      // The backend already filters by user, but we double-check here for security
+      const userBookings = allBookings.filter(booking => {
+        const belongsToUser = 
+          booking.userId === currentUser.email ||
+          booking.user?._id === currentUser._id ||
+          booking.user === currentUser._id ||
+          booking.passengers?.some(passenger => 
+            passenger.email === currentUser.email
+          );
+        
+        if (!belongsToUser) {
+          console.warn('⚠️ Filtering out booking that does not belong to user:', booking.bookingId);
+        }
+        
+        return belongsToUser;
+      });
+
+      console.log('✅ Filtered to user bookings:', userBookings.length);
 
       if (includeAll) {
         return userBookings;
       } else {
-        return userBookings.filter(booking => booking.status !== 'cancelled');
+        const activeBookings = userBookings.filter(booking => booking.status !== 'cancelled');
+        console.log('✅ Active bookings (non-cancelled):', activeBookings.length);
+        return activeBookings;
       }
     } catch (error) {
-      console.error('Error getting user bookings:', error);
+      console.error('❌ Error getting user bookings:', error);
       return [];
     }
   }
@@ -185,22 +210,41 @@ class BookingService {
   // Get only cancelled bookings for current user
   async getCancelledBookings() {
     try {
-      const allBookings = await this.getAllBookings();
+      console.log('📞 bookingService.getCancelledBookings() called');
+      
       const currentUser = this.getCurrentUser();
       
       if (!currentUser) {
+        console.warn('⚠️ No current user found');
         return [];
       }
 
-      return allBookings.filter(booking => 
+      if (this.useBackend && currentUser?.token) {
+        console.log('🌐 Fetching cancelled bookings from backend...');
+        const response = await apiService.getCancelledBookings();
+        
+        if (response.status === 'success') {
+          console.log('✅ Backend returned', response.data.bookings.length, 'cancelled bookings');
+          return response.data.bookings;
+        }
+      }
+
+      // Fallback to filtering from all bookings
+      console.log('📦 Falling back to filtering from all bookings');
+      const allBookings = await this.getAllBookings();
+      const cancelledBookings = allBookings.filter(booking => 
         (booking.userId === currentUser.email ||
          booking.user?._id === currentUser._id ||
+         booking.user === currentUser._id ||
          booking.passengers?.some(passenger => 
            passenger.email === currentUser.email
          )) && booking.status === 'cancelled'
       );
+      
+      console.log('✅ Found', cancelledBookings.length, 'cancelled bookings');
+      return cancelledBookings;
     } catch (error) {
-      console.error('Error getting cancelled bookings:', error);
+      console.error('❌ Error getting cancelled bookings:', error);
       return [];
     }
   }

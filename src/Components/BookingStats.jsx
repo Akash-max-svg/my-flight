@@ -114,7 +114,10 @@ const BookingStats = () => {
                 <div>
                   <div className="fw-semibold">{booking.flight.from} → {booking.flight.to}</div>
                   <div className="text-muted" style={{ fontSize: "11px" }}>
-                    {new Date(booking.bookingDate).toLocaleDateString('en-IN')}
+                    Flight: {new Date(booking.travelDate || booking.flight?.departureDate || booking.bookingDate).toLocaleDateString('en-IN', { 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })}
                   </div>
                 </div>
                 <span className={`badge ${

@@ -185,6 +185,10 @@ public/uploads/
 user-content/
 media/
 
+# Large CSV files
+*.csv
+backend/**/*.csv
+
 # ============================================
 # Security & Credentials
 # ============================================

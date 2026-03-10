@@ -42,9 +42,10 @@ const BookingSelector = () => {
   };
 
   const getTimeUntilFlight = (booking) => {
-    const bookingDate = new Date(booking.bookingDate);
+    // Use travelDate (flight departure date) not bookingDate
+    const flightDate = new Date(booking.travelDate || booking.flight?.departureDate || booking.bookingDate);
     const now = new Date();
-    const hoursUntilFlight = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const hoursUntilFlight = (flightDate.getTime() - now.getTime()) / (1000 * 60 * 60);
     
     if (hoursUntilFlight < 0) return "Departed";
     if (hoursUntilFlight < 24) return `${Math.round(hoursUntilFlight)} hours`;
@@ -53,16 +54,15 @@ const BookingSelector = () => {
 
   const getRefundEstimate = (booking) => {
     const totalPrice = booking.totalPrice;
-    const bookingDate = new Date(booking.bookingDate);
+    // Use travelDate (flight departure date) not bookingDate
+    const flightDate = new Date(booking.travelDate || booking.flight?.departureDate || booking.bookingDate);
     const now = new Date();
-    const hoursUntilFlight = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const hoursUntilFlight = (flightDate.getTime() - now.getTime()) / (1000 * 60 * 60);
     
     let refundPercentage = 0;
-    if (hoursUntilFlight > 72) refundPercentage = 0.90;
-    else if (hoursUntilFlight > 48) refundPercentage = 0.85;
-    else if (hoursUntilFlight > 24) refundPercentage = 0.75;
-    else if (hoursUntilFlight > 12) refundPercentage = 0.60;
-    else if (hoursUntilFlight > 2) refundPercentage = 0.40;
+    if (hoursUntilFlight > 168) refundPercentage = 0.95; // 7+ days
+    else if (hoursUntilFlight > 72) refundPercentage = 0.90; // 3-7 days
+    else refundPercentage = 0; // Less than 3 days - no refund
     
     return Math.round(totalPrice * refundPercentage);
   };

@@ -1,17 +1,45 @@
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import Login from "./Components/Login";
-import Signup from "./Components/Signup";
-import Home from "./Components/Home";
-import Booking from "./Components/Booking";
-import BookingManagement from "./Components/BookingManagement";
-import BookingCancellation from "./Components/BookingCancellation";
-import BookingSelector from "./Components/BookingSelector";
-import BookingSummary from "./Components/BookingSummary";
-import BookingDashboard from "./Components/BookingDashboard";
-import BookingConfirmation from "./Components/BookingConfirmation";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import ErrorBoundary from "./Components/ErrorBoundary";
+
+// Lazy load components for code splitting
+const Login = lazy(() => import("./Components/Login"));
+const Signup = lazy(() => import("./Components/Signup"));
+const ForgotPassword = lazy(() => import("./Components/ForgotPassword"));
+const ResetPassword = lazy(() => import("./Components/ResetPassword"));
+const Home = lazy(() => import("./Components/Home"));
+const Booking = lazy(() => import("./Components/Booking"));
+const BookingManagement = lazy(() => import("./Components/BookingManagement"));
+const BookingCancellation = lazy(() => import("./Components/BookingCancellation"));
+const BookingSelector = lazy(() => import("./Components/BookingSelector"));
+const BookingSummary = lazy(() => import("./Components/BookingSummary"));
+const BookingDashboard = lazy(() => import("./Components/BookingDashboard"));
+const BookingConfirmation = lazy(() => import("./Components/BookingConfirmation"));
+const OAuthCallback = lazy(() => import("./Components/OAuthCallback"));
+const OAuthDevConfirm = lazy(() => import("./Components/OAuthDevConfirm"));
+const AdminDashboard = lazy(() => import("./Components/AdminDashboard"));
+const UserProfile = lazy(() => import("./Components/UserProfile"));
+
+// Loading component
+const LoadingFallback = () => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100vh',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    color: 'white'
+  }}>
+    <div className="text-center">
+      <div className="spinner-border text-light mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+        <span className="visually-hidden">Loading...</span>
+      </div>
+      <h4>✈️ Loading...</h4>
+    </div>
+  </div>
+);
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -111,70 +139,104 @@ function App() {
   }
 
   return (
-    <HashRouter>
-      <ToastContainer position="top-center" autoClose={2000} />
-      <Routes>
-        {/* Home Route - Always accessible, but shows different content based on auth status */}
-        <Route 
-          path="/" 
-          element={<Home isLoggedIn={isLoggedIn} />} 
-        />
-        <Route 
-          path="/home" 
-          element={<Home isLoggedIn={isLoggedIn} />} 
-        />
-        
-        {/* Auth Routes - Only accessible when NOT logged in */}
-        <Route 
-          path="/login" 
-          element={!isLoggedIn ? <Login /> : <Navigate to="/home" replace />} 
-        />
-        <Route 
-          path="/signup" 
-          element={!isLoggedIn ? <Signup /> : <Navigate to="/home" replace />} 
-        />
+    <ErrorBoundary>
+      <HashRouter>
+        <ToastContainer position="top-center" autoClose={2000} />
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            {/* Home Route - Always accessible, but shows different content based on auth status */}
+            <Route 
+              path="/" 
+              element={<Home isLoggedIn={isLoggedIn} />} 
+            />
+            <Route 
+              path="/home" 
+              element={<Home isLoggedIn={isLoggedIn} />} 
+          />
+          
+          {/* Auth Routes - Only accessible when NOT logged in */}
+          <Route 
+            path="/login" 
+            element={!isLoggedIn ? <Login /> : <Navigate to="/home" replace />} 
+          />
+          <Route 
+            path="/signup" 
+            element={!isLoggedIn ? <Signup /> : <Navigate to="/home" replace />} 
+          />
+          <Route 
+            path="/forgot-password" 
+            element={!isLoggedIn ? <ForgotPassword /> : <Navigate to="/home" replace />} 
+          />
+          <Route 
+            path="/reset-password" 
+            element={!isLoggedIn ? <ResetPassword /> : <Navigate to="/home" replace />} 
+          />
+          <Route 
+            path="/oauth-callback" 
+            element={<OAuthCallback />} 
+          />
+          <Route 
+            path="/oauth-dev-confirm" 
+            element={<OAuthDevConfirm />} 
+          />
 
-        {/* Protected Routes - Only accessible when logged in */}
-        <Route
-          path="/booking"
-          element={isLoggedIn ? <Booking /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/my-bookings"
-          element={isLoggedIn ? <Home isLoggedIn={isLoggedIn} initialActive="TICKETS" /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/booking-summary/:bookingId"
-          element={isLoggedIn ? <BookingSummary /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/booking-dashboard"
-          element={isLoggedIn ? <BookingDashboard /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/cancel-booking"
-          element={isLoggedIn ? <BookingSelector /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/cancel-booking/:bookingId"
-          element={isLoggedIn ? <BookingCancellation /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/booking-confirmation"
-          element={isLoggedIn ? <BookingConfirmation /> : <Navigate to="/login" replace />}
-        />
-        <Route
-          path="/booking-confirmation/:bookingId"
-          element={isLoggedIn ? <BookingConfirmation /> : <Navigate to="/login" replace />}
-        />
+          {/* Admin Route */}
+          <Route 
+            path="/admin" 
+            element={<AdminDashboard />} 
+          />
+          <Route 
+            path="/admin-dashboard" 
+            element={<AdminDashboard />} 
+          />
 
-        {/* Redirect all invalid routes to home */}
-        <Route 
-          path="*" 
-          element={<Navigate to="/" replace />} 
-        />
-      </Routes>
-    </HashRouter>
+          {/* Protected Routes - Only accessible when logged in */}
+          <Route
+            path="/profile"
+            element={isLoggedIn ? <UserProfile /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/booking"
+            element={isLoggedIn ? <Booking /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/my-bookings"
+            element={isLoggedIn ? <Home isLoggedIn={isLoggedIn} initialActive="TICKETS" /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/booking-summary/:bookingId"
+            element={isLoggedIn ? <BookingSummary /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/booking-dashboard"
+            element={isLoggedIn ? <BookingDashboard /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/cancel-booking"
+            element={isLoggedIn ? <BookingSelector /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/cancel-booking/:bookingId"
+            element={isLoggedIn ? <BookingCancellation /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/booking-confirmation"
+            element={isLoggedIn ? <BookingConfirmation /> : <Navigate to="/login" replace />}
+          />
+          <Route
+            path="/booking-confirmation/:bookingId"
+            element={isLoggedIn ? <BookingConfirmation /> : <Navigate to="/login" replace />}
+          />
+
+          {/* Redirect all invalid routes to home */}
+          <Route 
+            path="*" 
+            element={<Navigate to="/" replace />} 
+          />
+        </Routes>
+        </Suspense>
+      </HashRouter>
+    </ErrorBoundary>
   );
 }
 

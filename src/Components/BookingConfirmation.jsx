@@ -65,51 +65,96 @@ const BookingConfirmation = () => {
     }
   };
 
-  const downloadETicket = () => {
+  const downloadETicket = async () => {
     try {
-      const ticketData = {
-        confirmationNumber: confirmationData.confirmationNumber,
-        eTicketNumber: confirmationData.eTicketNumber,
-        booking: booking,
-        confirmationDate: confirmationData.confirmationDate,
-        passengerDetails: booking.passengers,
-        flightDetails: booking.flight,
-        seatDetails: booking.seats
-      };
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error("Please login to download ticket");
+        return;
+      }
+
+      toast.info("📄 Generating your e-ticket...");
+
+      // Call backend API to generate and download PDF
+      const response = await fetch(
+        `http://localhost:5000/api/bookings/${booking._id}/ticket?confirmationNumber=${confirmationData.confirmationNumber}&eTicketNumber=${confirmationData.eTicketNumber}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to generate ticket');
+      }
+
+      // Get the PDF blob
+      const blob = await response.blob();
       
-      // In a real app, this would generate and download a PDF
-      const dataStr = JSON.stringify(ticketData, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `eticket-${confirmationData.confirmationNumber}.json`;
+      link.download = `eticket-${confirmationData.confirmationNumber}.pdf`;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
       
-      toast.success("E-Ticket downloaded successfully!");
+      toast.success("✅ E-Ticket downloaded successfully!");
     } catch (error) {
       console.error("Error downloading e-ticket:", error);
-      toast.error("Failed to download e-ticket");
+      toast.error("Failed to download e-ticket. Please try again.");
     }
   };
 
-  const sendConfirmationEmail = () => {
+  const sendConfirmationEmail = async () => {
     try {
-      // In a real app, this would send an actual email
-      
-      // Update confirmation data
-      const confirmations = JSON.parse(localStorage.getItem('booking_confirmations') || '[]');
-      const updatedConfirmations = confirmations.map(c => 
-        c.bookingId === bookingId 
-          ? { ...c, confirmationSent: true, lastEmailSent: new Date().toISOString() }
-          : c
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error("Please login to send email");
+        return;
+      }
+
+      toast.info("📧 Sending confirmation email...");
+
+      // Call backend API to send email with ticket
+      const response = await fetch(
+        `http://localhost:5000/api/bookings/${booking._id}/resend-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            confirmationNumber: confirmationData.confirmationNumber,
+            eTicketNumber: confirmationData.eTicketNumber
+          })
+        }
       );
-      localStorage.setItem('booking_confirmations', JSON.stringify(updatedConfirmations));
-      
-      toast.success("Confirmation email sent successfully!");
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        toast.success("✅ Confirmation email sent with ticket attachment!");
+        
+        // Update confirmation data
+        const confirmations = JSON.parse(localStorage.getItem('booking_confirmations') || '[]');
+        const updatedConfirmations = confirmations.map(c => 
+          c.bookingId === bookingId 
+            ? { ...c, confirmationSent: true, lastEmailSent: new Date().toISOString() }
+            : c
+        );
+        localStorage.setItem('booking_confirmations', JSON.stringify(updatedConfirmations));
+      } else {
+        throw new Error(data.message || 'Failed to send email');
+      }
     } catch (error) {
       console.error("Error sending confirmation email:", error);
-      toast.error("Failed to send confirmation email");
+      toast.error("Failed to send email. Please check your email configuration.");
     }
   };
 
@@ -222,7 +267,12 @@ const BookingConfirmation = () => {
                         <div><strong>Departure:</strong> {booking.flight.departure}</div>
                         <div><strong>Arrival:</strong> {booking.flight.arrival}</div>
                         <div><strong>Duration:</strong> {booking.flight.time}</div>
-                        <div><strong>Date:</strong> {new Date(booking.bookingDate).toLocaleDateString()}</div>
+                        <div><strong>Flight Date:</strong> {new Date(booking.travelDate || booking.flight?.departureDate || booking.bookingDate).toLocaleDateString('en-IN', { 
+                          weekday: 'short', 
+                          year: 'numeric', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })}</div>
                       </div>
                     </div>
                   </div>

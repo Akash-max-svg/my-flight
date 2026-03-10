@@ -116,6 +116,35 @@ const userSchema = new mongoose.Schema({
   emailVerificationExpires: {
     type: Date,
     select: false
+  },
+  // OAuth fields
+  googleId: {
+    type: String,
+    sparse: true,
+    unique: true
+  },
+  microsoftId: {
+    type: String,
+    sparse: true,
+    unique: true
+  },
+  instagramId: {
+    type: String,
+    sparse: true,
+    unique: true
+  },
+  provider: {
+    type: String,
+    enum: ['local', 'google', 'microsoft', 'instagram'],
+    default: 'local'
+  },
+  profilePicture: {
+    type: String,
+    default: null
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true,

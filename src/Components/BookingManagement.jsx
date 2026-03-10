@@ -138,11 +138,13 @@ const BookingManagement = () => {
       return false;
     }
     
-    const bookingDate = new Date(booking.bookingDate);
+    // Use travelDate (flight departure date) not bookingDate
+    const flightDate = new Date(booking.travelDate || booking.flight?.departureDate || booking.bookingDate);
     const now = new Date();
-    const hoursUntilFlight = (bookingDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const hoursUntilFlight = (flightDate.getTime() - now.getTime()) / (1000 * 60 * 60);
     
-    return hoursUntilFlight > 0; // Can cancel if flight hasn't departed
+    // Can cancel if more than 72 hours (3 days) before flight
+    return hoursUntilFlight > 72;
   };
 
   return (
